@@ -24,6 +24,9 @@ export class WorkspaceProbeToolset extends BaseToolset {
   }
 
   async execute(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+    if (context.workspace === undefined) {
+      throw new Error("Expected a workspace path in the tool context.");
+    }
     this.observedWorkspaces.push(context.workspace);
     this.observedExistence.push(existsSync(context.workspace));
     this.abortAfterCall?.abort();
