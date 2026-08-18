@@ -1,12 +1,15 @@
 import { ScriptExhaustedError } from "./errors.js";
-import type { Message } from "./types.js";
+import type { ToolSchema } from "./toolset.js";
+import type { Message, ToolCall } from "./types.js";
 
 export interface LlmRequest {
   readonly messages: readonly Message[];
+  readonly tools?: readonly ToolSchema[];
 }
 
 export interface LlmResponse {
   readonly text: string;
+  readonly toolCalls?: readonly ToolCall[];
 }
 
 export interface LlmProvider {
@@ -15,6 +18,7 @@ export interface LlmProvider {
 
 export interface ScriptedTurn {
   readonly text: string;
+  readonly toolCalls?: readonly ToolCall[];
 }
 
 export class ScriptedProvider implements LlmProvider {
@@ -39,6 +43,8 @@ export class ScriptedProvider implements LlmProvider {
       );
     }
     this.cursor += 1;
-    return { text: turn.text };
+    return turn.toolCalls === undefined
+      ? { text: turn.text }
+      : { text: turn.text, toolCalls: turn.toolCalls };
   }
 }
