@@ -1,5 +1,5 @@
-import { access, constants } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { constants, access } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 function run(command: string, args: string[]) {
