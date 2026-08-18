@@ -14,6 +14,10 @@ export interface RunRequest {
   readonly stream?: boolean;
 }
 
+export interface RunOptions {
+  readonly signal?: AbortSignal;
+}
+
 function toToolMessage(result: ToolResult): Message {
   return result.isError === undefined
     ? { role: "tool", callId: result.callId, content: result.content }
@@ -44,13 +48,17 @@ export class AgentLoop {
     this.router = new ToolsetRouter(this.toolsets);
   }
 
-  async *run(request: RunRequest): AsyncGenerator<Event, void, void> {
+  async *run(
+    request: RunRequest,
+    options?: RunOptions,
+  ): AsyncGenerator<Event, void, void> {
     if (request.stream) {
       throw new UnsupportedOptionError(
         "Streaming is not supported until token streaming ships.",
       );
     }
 
+    const signal = options?.signal;
     const maxRounds = request.maxRounds ?? DEFAULT_MAX_ROUNDS;
     const hasTools = this.toolsets.length > 0;
 
@@ -62,6 +70,11 @@ export class AgentLoop {
     validateMessages(messages);
 
     for (let round = 1; ; round += 1) {
+      if (signal?.aborted) {
+        yield { type: "cancelled" };
+        return;
+      }
+
       const isLastRound = round === maxRounds;
       const tools =
         hasTools && !isLastRound ? await this.router.listTools() : undefined;
@@ -99,10 +112,18 @@ export class AgentLoop {
       });
 
       for (const call of toolCalls) {
+        if (signal?.aborted) {
+          yield { type: "cancelled" };
+          return;
+        }
         yield { type: "tool_call", call };
         const result = await this.router.execute(call);
         yield { type: "tool_result", result };
         messages.push(toToolMessage(result));
+        if (signal?.aborted) {
+          yield { type: "cancelled" };
+          return;
+        }
       }
     }
   }
