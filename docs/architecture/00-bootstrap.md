@@ -22,13 +22,13 @@ the same way `.nvmrc` pins node).
 
 ## Running things
 
-| Command | Does |
-| --- | --- |
-| `pnpm check` | Biome lint, whole tree |
-| `pnpm format` | Biome, writes fixes |
-| `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm test` | Vitest, single run |
-| `pnpm test:watch` | Vitest, watch mode |
+| Command           | Does                   |
+| ----------------- | ---------------------- |
+| `pnpm check`      | Biome lint, whole tree |
+| `pnpm format`     | Biome, writes fixes    |
+| `pnpm typecheck`  | `tsc --noEmit`         |
+| `pnpm test`       | Vitest, single run     |
+| `pnpm test:watch` | Vitest, watch mode     |
 
 ## Git hooks
 
