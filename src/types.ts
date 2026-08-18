@@ -7,6 +7,11 @@ export interface Message {
   readonly content: string;
 }
 
+export type Event =
+  | { readonly type: "llm_request"; readonly messages: readonly Message[] }
+  | { readonly type: "llm_response"; readonly text: string }
+  | { readonly type: "final_text"; readonly text: string };
+
 export function validateMessages(messages: readonly Message[]): void {
   if (messages.length === 0) {
     throw new InvalidTranscriptError("A transcript must not be empty.");
