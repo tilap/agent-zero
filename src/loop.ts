@@ -10,6 +10,11 @@ export interface RunRequest {
   readonly stream?: boolean;
 }
 
+// This is the whole idea an "agent" boils down to: send messages, get
+// text back, stop. Phase 3 adds the other branch — tool calls instead of
+// text — and loops back into another round instead of stopping. Every
+// later phase (skills, MCP, hooks, sandbox) hangs more capability off
+// that one fork; it never changes the fork itself.
 export class AgentLoop {
   private readonly provider: LlmProvider;
 
