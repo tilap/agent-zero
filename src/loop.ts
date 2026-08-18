@@ -16,6 +16,7 @@ export interface RunRequest {
 
 export interface RunOptions {
   readonly signal?: AbortSignal;
+  readonly workspace?: string;
 }
 
 function toError(value: unknown): Error {
@@ -63,6 +64,7 @@ export class AgentLoop {
     }
 
     const signal = options?.signal;
+    const workspace = options?.workspace;
     const maxRounds = request.maxRounds ?? DEFAULT_MAX_ROUNDS;
     const hasTools = this.toolsets.length > 0;
 
@@ -121,7 +123,10 @@ export class AgentLoop {
         toolCalls,
       });
 
-      const toolContext: ToolContext = signal === undefined ? {} : { signal };
+      const toolContext: ToolContext = {
+        ...(signal === undefined ? {} : { signal }),
+        ...(workspace === undefined ? {} : { workspace }),
+      };
       for (const call of toolCalls) {
         if (signal?.aborted) {
           yield { type: "cancelled" };

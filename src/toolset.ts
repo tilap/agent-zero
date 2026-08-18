@@ -9,6 +9,7 @@ export interface ToolSchema {
 
 export interface ToolContext {
   readonly signal?: AbortSignal;
+  readonly workspace?: string;
 }
 
 export abstract class BaseToolset {

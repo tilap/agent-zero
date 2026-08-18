@@ -10,3 +10,4 @@ Do not read the whole `docs/` tree.
 | [architecture/02-text-only-loop.md](architecture/02-text-only-loop.md) | What events does one loop round emit? What does `stream: true` do today? |
 | [architecture/03-tools.md](architecture/03-tools.md) | How does a tool round work? What happens when a tool throws or is unknown? |
 | [architecture/04-loop-bounds.md](architecture/04-loop-bounds.md) | What happens at `maxRounds`? How does cancellation work? |
+| [architecture/05-agent-facade.md](architecture/05-agent-facade.md) | How do I use `Agent`? What is `RunResult`? How does the workspace lifecycle work? |
