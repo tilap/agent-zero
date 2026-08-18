@@ -1,5 +1,6 @@
 import { BaseToolset } from "../../src/toolset.js";
-import type { ToolCall, ToolResult, ToolSchema } from "../../src/toolset.js";
+import type { ToolSchema } from "../../src/toolset.js";
+import type { ToolCall, ToolResult } from "../../src/types.js";
 
 const schemas: readonly ToolSchema[] = [
   {
