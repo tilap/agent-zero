@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+staged_files=$(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if [ -z "$staged_files" ]; then
+  exit 0
+fi
+
+printf '%s' "$staged_files" | xargs -0 pnpm exec biome check --no-errors-on-unmatched
