@@ -1,3 +1,4 @@
+import { UnsupportedOptionError } from "./errors.js";
 import type { LlmProvider } from "./provider.js";
 import type { Event, Message } from "./types.js";
 import { validateMessages } from "./types.js";
@@ -17,6 +18,12 @@ export class AgentLoop {
   }
 
   async *run(request: RunRequest): AsyncGenerator<Event, void, void> {
+    if (request.stream) {
+      throw new UnsupportedOptionError(
+        "Streaming is not supported until token streaming ships.",
+      );
+    }
+
     const messages: Message[] = [];
     if (request.systemPrompt !== undefined) {
       messages.push({ role: "system", content: request.systemPrompt });
