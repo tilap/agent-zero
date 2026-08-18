@@ -18,6 +18,10 @@ export interface RunOptions {
   readonly signal?: AbortSignal;
 }
 
+function toError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
+}
+
 function toToolMessage(result: ToolResult): Message {
   return result.isError === undefined
     ? { role: "tool", callId: result.callId, content: result.content }
@@ -80,9 +84,15 @@ export class AgentLoop {
         hasTools && !isLastRound ? await this.router.listTools() : undefined;
 
       yield { type: "llm_request", messages: [...messages] };
-      const response = await this.provider.chat(
-        tools === undefined ? { messages } : { messages, tools },
-      );
+      let response: Awaited<ReturnType<LlmProvider["chat"]>>;
+      try {
+        response = await this.provider.chat(
+          tools === undefined ? { messages } : { messages, tools },
+        );
+      } catch (error) {
+        yield { type: "error", error: toError(error) };
+        return;
+      }
       yield { type: "llm_response", text: response.text };
 
       const toolCalls = response.toolCalls ?? [];
