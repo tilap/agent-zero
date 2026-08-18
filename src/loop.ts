@@ -1,6 +1,6 @@
 import { MaxRoundsExceededError, UnsupportedOptionError } from "./errors.js";
 import type { LlmProvider } from "./provider.js";
-import type { BaseToolset } from "./toolset.js";
+import type { BaseToolset, ToolContext } from "./toolset.js";
 import { ToolsetRouter } from "./toolset.js";
 import type { Event, Message, ToolResult } from "./types.js";
 import { validateMessages } from "./types.js";
@@ -111,13 +111,14 @@ export class AgentLoop {
         toolCalls,
       });
 
+      const toolContext: ToolContext = signal === undefined ? {} : { signal };
       for (const call of toolCalls) {
         if (signal?.aborted) {
           yield { type: "cancelled" };
           return;
         }
         yield { type: "tool_call", call };
-        const result = await this.router.execute(call);
+        const result = await this.router.execute(call, toolContext);
         yield { type: "tool_result", result };
         messages.push(toToolMessage(result));
         if (signal?.aborted) {
