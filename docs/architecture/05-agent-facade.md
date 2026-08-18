@@ -46,7 +46,7 @@ export class Agent {
 
 export interface ToolContext {
   readonly signal?: AbortSignal;
-  readonly workspace: string;
+  readonly workspace?: string;
 }
 ```
 
@@ -59,9 +59,11 @@ export interface ToolContext {
   `final_text`, `cancelled`, or `error` alike. With a path given, it is
   created if missing and never removed: deleting a directory the caller
   named is not this library's call to make.
-- `ToolContext.workspace` becomes required here (it was optional through
-  Phase 4): by this phase every run has one, so an optional field would
-  make every tool handle a case that cannot happen.
+- `ToolContext.workspace` stays optional at the type level — `AgentLoop`
+  and `ToolsetRouter` are still usable standalone, without a workspace,
+  as they were in Phases 3–4. Going through `Agent`, it is always
+  populated in practice; a tool that only ever runs behind `Agent` can
+  treat it as present.
 - `stopReason` derives from the run's single terminal event (Phase 4):
   `max_rounds` is the `error` case whose `error` is a
   `MaxRoundsExceededError`; anything else stays a generic `error`.
