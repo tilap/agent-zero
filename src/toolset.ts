@@ -7,9 +7,13 @@ export interface ToolSchema {
   readonly parameters: Readonly<Record<string, unknown>>;
 }
 
+export interface ToolContext {
+  readonly signal?: AbortSignal;
+}
+
 export abstract class BaseToolset {
   abstract listTools(): Promise<readonly ToolSchema[]>;
-  abstract execute(call: ToolCall): Promise<ToolResult>;
+  abstract execute(call: ToolCall, context: ToolContext): Promise<ToolResult>;
 }
 
 export class ToolsetRouter {
@@ -40,7 +44,10 @@ export class ToolsetRouter {
     return merged;
   }
 
-  async execute(call: ToolCall): Promise<ToolResult> {
+  async execute(
+    call: ToolCall,
+    context: ToolContext = {},
+  ): Promise<ToolResult> {
     const owner = await this.findOwner(call.name);
     if (owner === undefined) {
       const names = (await this.listTools()).map((tool) => tool.name);
@@ -52,7 +59,7 @@ export class ToolsetRouter {
     }
 
     try {
-      return await owner.execute(call);
+      return await owner.execute(call, context);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return { callId: call.id, content: message, isError: true };

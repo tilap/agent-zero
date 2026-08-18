@@ -1,15 +1,25 @@
-import { UnsupportedOptionError } from "./errors.js";
+import { MaxRoundsExceededError, UnsupportedOptionError } from "./errors.js";
 import type { LlmProvider } from "./provider.js";
-import type { BaseToolset } from "./toolset.js";
+import type { BaseToolset, ToolContext } from "./toolset.js";
 import { ToolsetRouter } from "./toolset.js";
 import type { Event, Message, ToolResult } from "./types.js";
 import { validateMessages } from "./types.js";
+
+const DEFAULT_MAX_ROUNDS = 10;
 
 export interface RunRequest {
   readonly userMessage: string;
   readonly systemPrompt?: string;
   readonly maxRounds?: number;
   readonly stream?: boolean;
+}
+
+export interface RunOptions {
+  readonly signal?: AbortSignal;
+}
+
+function toError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(String(value));
 }
 
 function toToolMessage(result: ToolResult): Message {
@@ -42,12 +52,19 @@ export class AgentLoop {
     this.router = new ToolsetRouter(this.toolsets);
   }
 
-  async *run(request: RunRequest): AsyncGenerator<Event, void, void> {
+  async *run(
+    request: RunRequest,
+    options?: RunOptions,
+  ): AsyncGenerator<Event, void, void> {
     if (request.stream) {
       throw new UnsupportedOptionError(
         "Streaming is not supported until token streaming ships.",
       );
     }
+
+    const signal = options?.signal;
+    const maxRounds = request.maxRounds ?? DEFAULT_MAX_ROUNDS;
+    const hasTools = this.toolsets.length > 0;
 
     const messages: Message[] = [];
     if (request.systemPrompt !== undefined) {
@@ -56,32 +73,68 @@ export class AgentLoop {
     messages.push({ role: "user", content: request.userMessage });
     validateMessages(messages);
 
-    const tools =
-      this.toolsets.length > 0 ? await this.router.listTools() : undefined;
+    for (let round = 1; ; round += 1) {
+      if (signal?.aborted) {
+        yield { type: "cancelled" };
+        return;
+      }
 
-    for (;;) {
+      const isLastRound = round === maxRounds;
+      const tools =
+        hasTools && !isLastRound ? await this.router.listTools() : undefined;
+
       yield { type: "llm_request", messages: [...messages] };
-      const response = await this.provider.chat(
-        tools === undefined ? { messages } : { messages, tools },
-      );
+      let response: Awaited<ReturnType<LlmProvider["chat"]>>;
+      try {
+        response = await this.provider.chat(
+          tools === undefined ? { messages } : { messages, tools },
+        );
+      } catch (error) {
+        yield { type: "error", error: toError(error) };
+        return;
+      }
       yield { type: "llm_response", text: response.text };
 
-      if (response.toolCalls === undefined || response.toolCalls.length === 0) {
+      const toolCalls = response.toolCalls ?? [];
+      if (toolCalls.length === 0) {
         yield { type: "final_text", text: response.text };
+        return;
+      }
+
+      if (isLastRound) {
+        if (response.text !== "") {
+          yield { type: "final_text", text: response.text };
+        } else {
+          yield {
+            type: "error",
+            error: new MaxRoundsExceededError(
+              `Exceeded max rounds (${maxRounds}) with unresolved tool calls.`,
+            ),
+          };
+        }
         return;
       }
 
       messages.push({
         role: "assistant",
         content: response.text,
-        toolCalls: response.toolCalls,
+        toolCalls,
       });
 
-      for (const call of response.toolCalls) {
+      const toolContext: ToolContext = signal === undefined ? {} : { signal };
+      for (const call of toolCalls) {
+        if (signal?.aborted) {
+          yield { type: "cancelled" };
+          return;
+        }
         yield { type: "tool_call", call };
-        const result = await this.router.execute(call);
+        const result = await this.router.execute(call, toolContext);
         yield { type: "tool_result", result };
         messages.push(toToolMessage(result));
+        if (signal?.aborted) {
+          yield { type: "cancelled" };
+          return;
+        }
       }
     }
   }

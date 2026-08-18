@@ -31,7 +31,9 @@ export type Event =
   | { readonly type: "llm_response"; readonly text: string }
   | { readonly type: "final_text"; readonly text: string }
   | { readonly type: "tool_call"; readonly call: ToolCall }
-  | { readonly type: "tool_result"; readonly result: ToolResult };
+  | { readonly type: "tool_result"; readonly result: ToolResult }
+  | { readonly type: "cancelled" }
+  | { readonly type: "error"; readonly error: Error };
 
 export function validateMessages(messages: readonly Message[]): void {
   if (messages.length === 0) {
