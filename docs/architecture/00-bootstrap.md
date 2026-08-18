@@ -29,6 +29,7 @@ the same way `.nvmrc` pins node).
 | `pnpm typecheck`  | `tsc --noEmit`         |
 | `pnpm test`       | Vitest, single run     |
 | `pnpm test:watch` | Vitest, watch mode     |
+| `pnpm build`      | Emit `dist/` (`tsc -p tsconfig.build.json`) |
 
 ## Git hooks
 
