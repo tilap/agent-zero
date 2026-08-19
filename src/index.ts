@@ -12,6 +12,17 @@ export {
   ScriptExhaustedError,
   UnsupportedOptionError,
 } from "./errors.js";
+export type {
+  AfterModelContext,
+  AfterModelHook,
+  AfterToolContext,
+  AfterToolHook,
+  BeforeModelContext,
+  BeforeModelHook,
+  BeforeToolContext,
+  BeforeToolHook,
+  Hooks,
+} from "./hooks.js";
 export type { RunOptions, RunRequest } from "./loop.js";
 export { AgentLoop } from "./loop.js";
 export type {
