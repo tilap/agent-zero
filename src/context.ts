@@ -12,8 +12,12 @@ export interface TruncatingCompactorOptions {
   readonly maxMessages: number;
 }
 
-function isOpenToolCallGroup(message: Message): boolean {
-  return message.role === "assistant" && (message.toolCalls?.length ?? 0) > 0;
+function openToolCallIds(message: Message): Set<string> | undefined {
+  if (message.role !== "assistant" || (message.toolCalls?.length ?? 0) === 0) {
+    return undefined;
+  }
+  // biome-ignore lint/style/noNonNullAssertion: length checked above
+  return new Set(message.toolCalls!.map((call) => call.id));
 }
 
 // A chunk is one or more messages that must move together: an assistant
@@ -27,14 +31,13 @@ function toChunks(messages: readonly Message[]): Message[][] {
   while (index < messages.length) {
     // biome-ignore lint/style/noNonNullAssertion: index is within bounds
     const message = messages[index]!;
-    if (!isOpenToolCallGroup(message)) {
+    const ids = openToolCallIds(message);
+    if (ids === undefined) {
       chunks.push([message]);
       index += 1;
       continue;
     }
 
-    // biome-ignore lint/style/noNonNullAssertion: guarded by isOpenToolCallGroup
-    const ids = new Set(message.toolCalls!.map((call) => call.id));
     const chunk = [message];
     index += 1;
     while (index < messages.length) {

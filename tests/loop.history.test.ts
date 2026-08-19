@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TruncatingCompactor } from "../src/context.js";
+import { MAX_TOOL_RESULT_CHARS, TruncatingCompactor } from "../src/context.js";
 import { InvalidTranscriptError } from "../src/errors.js";
 import { AgentLoop } from "../src/loop.js";
 import { ScriptedProvider } from "../src/provider.js";
@@ -134,6 +134,8 @@ describe("AgentLoop tool result clipping across rounds", () => {
       throw new Error("expected the last message to be a tool result");
     }
     expect(toolMessage.content).toContain("truncated");
-    expect(toolMessage.content.length).toBeLessThan(600 + 500);
+    expect(toolMessage.content.length).toBeLessThan(
+      MAX_TOOL_RESULT_CHARS + 500,
+    );
   });
 });
