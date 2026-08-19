@@ -14,3 +14,4 @@ Do not read the whole `docs/` tree.
 | [architecture/06-skills.md](architecture/06-skills.md) | What is a `SKILL.md`? How does a model discover and load a skill? |
 | [architecture/07-mcp.md](architecture/07-mcp.md) | How does an MCP server become a toolset? How are tool names prefixed? |
 | [architecture/08-mcp-transports.md](architecture/08-mcp-transports.md) | How does `McpToolset` connect over SSE or HTTP instead of stdio? |
+| [architecture/09-hooks.md](architecture/09-hooks.md) | How do `beforeModel`/`afterModel`/`beforeTool`/`afterTool` hooks work? |

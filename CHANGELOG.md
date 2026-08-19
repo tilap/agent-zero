@@ -20,6 +20,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `McpToolset.connectSse` and `.connectHttp`: the same toolset over a
   hand-rolled SSE or Streamable HTTP connection, with `${VAR}`
   substitution over `headers` instead of `env`.
+- `Hooks` (`beforeModel`, `afterModel`, `beforeTool`, `afterTool`) and
+  `AgentOptions.hooks`: splice into a round to short-circuit or replace
+  a model response or a tool result, without writing a toolset.
 
 ## [0.1.0] - 2026-08-18
 

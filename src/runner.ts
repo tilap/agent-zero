@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Hooks } from "./hooks.js";
 import { AgentLoop } from "./loop.js";
 import type { RunRequest } from "./loop.js";
 import type { LlmProvider } from "./provider.js";
@@ -16,6 +17,7 @@ export interface RunnerOptions {
   readonly toolsets?: readonly BaseToolset[];
   readonly maxRounds?: number;
   readonly workspace?: WorkspaceOptions;
+  readonly hooks?: Hooks;
 }
 
 export interface RunnerRunOptions {
@@ -38,12 +40,14 @@ export class Runner {
   private readonly toolsets: readonly BaseToolset[];
   private readonly defaultMaxRounds: number | undefined;
   private readonly workspaceOptions: WorkspaceOptions | undefined;
+  private readonly hooks: Hooks | undefined;
 
   constructor(options: RunnerOptions) {
     this.provider = options.provider;
     this.toolsets = options.toolsets ?? [];
     this.defaultMaxRounds = options.maxRounds;
     this.workspaceOptions = options.workspace;
+    this.hooks = options.hooks;
   }
 
   async *run(
@@ -54,6 +58,7 @@ export class Runner {
     const loop = new AgentLoop({
       provider: this.provider,
       toolsets: this.toolsets,
+      ...(this.hooks === undefined ? {} : { hooks: this.hooks }),
     });
     const fullRequest: RunRequest =
       request.maxRounds !== undefined || this.defaultMaxRounds === undefined

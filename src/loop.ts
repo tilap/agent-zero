@@ -1,5 +1,6 @@
 import { MaxRoundsExceededError, UnsupportedOptionError } from "./errors.js";
-import type { LlmProvider } from "./provider.js";
+import type { Hooks } from "./hooks.js";
+import type { LlmProvider, LlmRequest, LlmResponse } from "./provider.js";
 import type { BaseToolset, ToolContext } from "./toolset.js";
 import { ToolsetRouter } from "./toolset.js";
 import type { Event, Message, ToolResult } from "./types.js";
@@ -43,14 +44,17 @@ export class AgentLoop {
   private readonly provider: LlmProvider;
   private readonly toolsets: readonly BaseToolset[];
   private readonly router: ToolsetRouter;
+  private readonly hooks: Hooks | undefined;
 
   constructor(options: {
     readonly provider: LlmProvider;
     readonly toolsets?: readonly BaseToolset[];
+    readonly hooks?: Hooks;
   }) {
     this.provider = options.provider;
     this.toolsets = options.toolsets ?? [];
     this.router = new ToolsetRouter(this.toolsets);
+    this.hooks = options.hooks;
   }
 
   async *run(
@@ -84,13 +88,28 @@ export class AgentLoop {
       const isLastRound = round === maxRounds;
       const tools =
         hasTools && !isLastRound ? await this.router.listTools() : undefined;
+      const llmRequest: LlmRequest =
+        tools === undefined ? { messages } : { messages, tools };
 
-      yield { type: "llm_request", messages: [...messages] };
-      let response: Awaited<ReturnType<LlmProvider["chat"]>>;
+      let response: LlmResponse;
       try {
-        response = await this.provider.chat(
-          tools === undefined ? { messages } : { messages, tools },
-        );
+        const shortCircuit =
+          this.hooks?.beforeModel === undefined
+            ? undefined
+            : await this.hooks.beforeModel({ request: llmRequest });
+        if (shortCircuit !== undefined) {
+          response = shortCircuit;
+        } else {
+          yield { type: "llm_request", messages: [...messages] };
+          response = await this.provider.chat(llmRequest);
+          const replaced =
+            this.hooks?.afterModel === undefined
+              ? undefined
+              : await this.hooks.afterModel({ request: llmRequest, response });
+          if (replaced !== undefined) {
+            response = replaced;
+          }
+        }
       } catch (error) {
         yield { type: "error", error: toError(error) };
         return;
@@ -133,7 +152,30 @@ export class AgentLoop {
           return;
         }
         yield { type: "tool_call", call };
-        const result = await this.router.execute(call, toolContext);
+
+        let result: ToolResult;
+        try {
+          const shortCircuit =
+            this.hooks?.beforeTool === undefined
+              ? undefined
+              : await this.hooks.beforeTool({ call });
+          if (shortCircuit !== undefined) {
+            result = shortCircuit;
+          } else {
+            result = await this.router.execute(call, toolContext);
+            const replaced =
+              this.hooks?.afterTool === undefined
+                ? undefined
+                : await this.hooks.afterTool({ call, result });
+            if (replaced !== undefined) {
+              result = replaced;
+            }
+          }
+        } catch (error) {
+          yield { type: "error", error: toError(error) };
+          return;
+        }
+
         yield { type: "tool_result", result };
         messages.push(toToolMessage(result));
         if (signal?.aborted) {

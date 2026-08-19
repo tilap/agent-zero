@@ -1,4 +1,5 @@
 import { MaxRoundsExceededError } from "./errors.js";
+import type { Hooks } from "./hooks.js";
 import type { RunRequest } from "./loop.js";
 import type { LlmProvider } from "./provider.js";
 import { Runner } from "./runner.js";
@@ -15,6 +16,7 @@ export interface AgentOptions {
   readonly maxRounds?: number;
   readonly workspace?: WorkspaceOptions;
   readonly skills?: SkillRegistry;
+  readonly hooks?: Hooks;
 }
 
 export type StopReason = "final_text" | "max_rounds" | "cancelled" | "error";
@@ -95,6 +97,7 @@ export class Agent {
       ...(options.workspace === undefined
         ? {}
         : { workspace: options.workspace }),
+      ...(options.hooks === undefined ? {} : { hooks: options.hooks }),
     });
   }
 
