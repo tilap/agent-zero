@@ -3,6 +3,8 @@ import type { RunRequest } from "./loop.js";
 import type { LlmProvider } from "./provider.js";
 import { Runner } from "./runner.js";
 import type { WorkspaceOptions } from "./runner.js";
+import { SkillToolset } from "./skill.js";
+import type { SkillRegistry } from "./skill.js";
 import type { BaseToolset } from "./toolset.js";
 import type { Event } from "./types.js";
 
@@ -12,6 +14,7 @@ export interface AgentOptions {
   readonly systemPrompt?: string;
   readonly maxRounds?: number;
   readonly workspace?: WorkspaceOptions;
+  readonly skills?: SkillRegistry;
 }
 
 export type StopReason = "final_text" | "max_rounds" | "cancelled" | "error";
@@ -55,15 +58,37 @@ function toRunResult(events: readonly Event[]): RunResult {
   throw new Error("Run ended without a terminal event.");
 }
 
+function withSkillsPrelude(
+  systemPrompt: string | undefined,
+  skills: SkillRegistry | undefined,
+): string | undefined {
+  if (skills === undefined) {
+    return systemPrompt;
+  }
+  const prelude = skills.prelude();
+  return systemPrompt === undefined ? prelude : `${systemPrompt}\n\n${prelude}`;
+}
+
+function withSkillsToolset(
+  toolsets: readonly BaseToolset[] | undefined,
+  skills: SkillRegistry | undefined,
+): readonly BaseToolset[] | undefined {
+  if (skills === undefined) {
+    return toolsets;
+  }
+  return [...(toolsets ?? []), new SkillToolset(skills)];
+}
+
 export class Agent {
   private readonly runner: Runner;
   private readonly systemPrompt: string | undefined;
 
   constructor(options: AgentOptions) {
-    this.systemPrompt = options.systemPrompt;
+    this.systemPrompt = withSkillsPrelude(options.systemPrompt, options.skills);
+    const toolsets = withSkillsToolset(options.toolsets, options.skills);
     this.runner = new Runner({
       provider: options.provider,
-      ...(options.toolsets === undefined ? {} : { toolsets: options.toolsets }),
+      ...(toolsets === undefined ? {} : { toolsets }),
       ...(options.maxRounds === undefined
         ? {}
         : { maxRounds: options.maxRounds }),
