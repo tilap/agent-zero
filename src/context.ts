@@ -1,4 +1,4 @@
-import type { Message } from "./types.js";
+import type { Message, ToolResult } from "./types.js";
 
 export const MAX_TOOL_RESULT_CHARS = 20_000;
 
@@ -86,4 +86,18 @@ export class TruncatingCompactor implements ContextCompactor {
     const result = kept.flat();
     return system === undefined ? result : [system, ...result];
   }
+}
+
+export function clipToolResult(
+  result: ToolResult,
+  max: number = MAX_TOOL_RESULT_CHARS,
+): ToolResult {
+  if (result.content.length <= max) {
+    return result;
+  }
+  const cut = result.content.length - max;
+  return {
+    ...result,
+    content: `${result.content.slice(0, max)}\n…[truncated ${cut} of ${result.content.length} characters]`,
+  };
 }
