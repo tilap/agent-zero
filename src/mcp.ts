@@ -28,6 +28,71 @@ interface PendingRequest {
   readonly reject: (error: Error) => void;
 }
 
+// Shared by any session with a persistent channel (stdio, SSE): requests
+// go out over that channel and responses arrive independently, matched
+// by id. HTTP has no need for this — one POST is one response.
+class PendingRequestTable {
+  private readonly pending = new Map<number, PendingRequest>();
+  private closed = false;
+
+  get isClosed(): boolean {
+    return this.closed;
+  }
+
+  add(id: number, entry: PendingRequest): void {
+    this.pending.set(id, entry);
+  }
+
+  resolve(id: number, result: unknown): void {
+    const entry = this.pending.get(id);
+    if (entry === undefined) {
+      return;
+    }
+    this.pending.delete(id);
+    entry.resolve(result);
+  }
+
+  reject(id: number, error: Error): void {
+    const entry = this.pending.get(id);
+    if (entry === undefined) {
+      return;
+    }
+    this.pending.delete(id);
+    entry.reject(error);
+  }
+
+  closeAll(reason: Error): void {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+    for (const entry of this.pending.values()) {
+      entry.reject(reason);
+    }
+    this.pending.clear();
+  }
+}
+
+function dispatchJsonRpcMessage(
+  raw: string,
+  pending: PendingRequestTable,
+): void {
+  let message: JsonRpcMessage;
+  try {
+    message = JSON.parse(raw);
+  } catch {
+    return;
+  }
+  if (message.id === undefined) {
+    return;
+  }
+  if (message.error !== undefined) {
+    pending.reject(message.id, new McpProtocolError(message.error.message));
+  } else {
+    pending.resolve(message.id, message.result);
+  }
+}
+
 export interface McpToolDescriptor {
   readonly name: string;
   readonly description?: string;
@@ -116,6 +181,66 @@ export class McpToolset extends BaseToolset {
       ...(options.only === undefined ? {} : { only: options.only }),
     });
   }
+
+  static async connectSse(options: SseMcpServerOptions): Promise<McpToolset> {
+    const headers =
+      options.headers === undefined
+        ? undefined
+        : substituteEnv(options.headers);
+    let session: SseMcpSession;
+    try {
+      session = await SseMcpSession.connect({
+        url: options.url,
+        ...(headers === undefined ? {} : { headers }),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new McpConnectionError(
+        `Failed to connect to MCP server "${options.name}": ${message}`,
+      );
+    }
+    return new McpToolset(session, {
+      name: options.name,
+      ...(options.only === undefined ? {} : { only: options.only }),
+    });
+  }
+
+  static async connectHttp(options: HttpMcpServerOptions): Promise<McpToolset> {
+    const headers =
+      options.headers === undefined
+        ? undefined
+        : substituteEnv(options.headers);
+    let session: HttpMcpSession;
+    try {
+      session = await HttpMcpSession.connect({
+        url: options.url,
+        ...(headers === undefined ? {} : { headers }),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new McpConnectionError(
+        `Failed to connect to MCP server "${options.name}": ${message}`,
+      );
+    }
+    return new McpToolset(session, {
+      name: options.name,
+      ...(options.only === undefined ? {} : { only: options.only }),
+    });
+  }
+}
+
+export interface HttpMcpServerOptions {
+  readonly name: string;
+  readonly url: string;
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly only?: readonly string[];
+}
+
+export interface SseMcpServerOptions {
+  readonly name: string;
+  readonly url: string;
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly only?: readonly string[];
 }
 
 export interface StdioMcpServerOptions {
@@ -128,17 +253,18 @@ export interface StdioMcpServerOptions {
 
 class StdioMcpSession implements McpSession {
   private readonly child: ChildProcessWithoutNullStreams;
-  private readonly pending = new Map<number, PendingRequest>();
+  private readonly pending = new PendingRequestTable();
   private nextId = 1;
   private buffer = "";
-  private closed = false;
 
   private constructor(child: ChildProcessWithoutNullStreams) {
     this.child = child;
     this.child.stdout.setEncoding("utf8");
     this.child.stdout.on("data", (chunk: string) => this.onData(chunk));
     this.child.once("exit", () =>
-      this.onClosed(new McpConnectionError("MCP server process exited.")),
+      this.pending.closeAll(
+        new McpConnectionError("MCP server process exited."),
+      ),
     );
   }
 
@@ -194,31 +320,20 @@ class StdioMcpSession implements McpSession {
   }
 
   async close(): Promise<void> {
-    this.onClosed(new McpConnectionError("MCP session closed."));
+    this.pending.closeAll(new McpConnectionError("MCP session closed."));
     this.child.kill();
-  }
-
-  private onClosed(reason: Error): void {
-    if (this.closed) {
-      return;
-    }
-    this.closed = true;
-    for (const pending of this.pending.values()) {
-      pending.reject(reason);
-    }
-    this.pending.clear();
   }
 
   private request(
     method: string,
     params: Readonly<Record<string, unknown>>,
   ): Promise<unknown> {
-    if (this.closed) {
+    if (this.pending.isClosed) {
       return Promise.reject(new McpConnectionError("MCP session is closed."));
     }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      this.pending.add(id, { resolve, reject });
       this.send({ jsonrpc: "2.0", id, method, params });
     });
   }
@@ -248,24 +363,288 @@ class StdioMcpSession implements McpSession {
   }
 
   private onMessage(line: string): void {
-    let message: JsonRpcMessage;
+    dispatchJsonRpcMessage(line, this.pending);
+  }
+}
+
+class SseMcpSession implements McpSession {
+  private readonly pending = new PendingRequestTable();
+  private readonly headers: Readonly<Record<string, string>>;
+  private readonly streamUrl: string;
+  private readonly abortController = new AbortController();
+  private nextId = 1;
+  private postUrl: string | undefined;
+
+  private constructor(
+    streamUrl: string,
+    headers: Readonly<Record<string, string>>,
+  ) {
+    this.streamUrl = streamUrl;
+    this.headers = headers;
+  }
+
+  static async connect(options: {
+    readonly url: string;
+    readonly headers?: Readonly<Record<string, string>>;
+  }): Promise<SseMcpSession> {
+    const session = new SseMcpSession(options.url, options.headers ?? {});
+    await session.openStream();
+    await session.request("initialize", {
+      protocolVersion: PROTOCOL_VERSION,
+      capabilities: {},
+      clientInfo: CLIENT_INFO,
+    });
+    session.notify("notifications/initialized", {});
+    return session;
+  }
+
+  async listTools(): Promise<readonly McpToolDescriptor[]> {
+    const result = (await this.request("tools/list", {})) as
+      | { readonly tools?: readonly McpToolDescriptor[] }
+      | undefined;
+    return result?.tools ?? [];
+  }
+
+  async callTool(
+    name: string,
+    args: Readonly<Record<string, unknown>>,
+  ): Promise<McpToolResult> {
+    return (await this.request("tools/call", {
+      name,
+      arguments: args,
+    })) as McpToolResult;
+  }
+
+  async close(): Promise<void> {
+    this.pending.closeAll(new McpConnectionError("MCP session closed."));
+    this.abortController.abort();
+  }
+
+  private async openStream(): Promise<void> {
+    const response = await fetch(this.streamUrl, {
+      headers: { accept: "text/event-stream", ...this.headers },
+      signal: this.abortController.signal,
+    });
+    if (!response.ok || response.body === null) {
+      throw new McpConnectionError(
+        `SSE stream returned HTTP ${response.status} from ${this.streamUrl}.`,
+      );
+    }
+
+    const endpoint = await new Promise<string>((resolve, reject) => {
+      this.pump(response.body as ReadableStream<Uint8Array>, resolve, reject);
+    });
+    this.postUrl = new URL(endpoint, this.streamUrl).toString();
+  }
+
+  private async pump(
+    body: ReadableStream<Uint8Array>,
+    resolveEndpoint: (url: string) => void,
+    rejectEndpoint: (error: Error) => void,
+  ): Promise<void> {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let endpointSettled = false;
+
     try {
-      message = JSON.parse(line);
-    } catch {
-      return;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        let boundary = buffer.indexOf("\n\n");
+        while (boundary !== -1) {
+          const rawEvent = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          const parsed = parseSseEvent(rawEvent);
+          if (parsed.event === "endpoint" && !endpointSettled) {
+            endpointSettled = true;
+            resolveEndpoint(parsed.data);
+          } else if (parsed.event === "message") {
+            dispatchJsonRpcMessage(parsed.data, this.pending);
+          }
+          boundary = buffer.indexOf("\n\n");
+        }
+      }
+      if (!endpointSettled) {
+        rejectEndpoint(
+          new McpConnectionError("SSE stream ended before an endpoint event."),
+        );
+      }
+      this.pending.closeAll(new McpConnectionError("MCP SSE stream ended."));
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error : new McpConnectionError(String(error));
+      if (!endpointSettled) {
+        rejectEndpoint(reason);
+      }
+      this.pending.closeAll(reason);
     }
-    if (message.id === undefined) {
-      return;
+  }
+
+  private request(
+    method: string,
+    params: Readonly<Record<string, unknown>>,
+  ): Promise<unknown> {
+    if (this.pending.isClosed) {
+      return Promise.reject(new McpConnectionError("MCP session is closed."));
     }
-    const pending = this.pending.get(message.id);
-    if (pending === undefined) {
-      return;
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      this.pending.add(id, { resolve, reject });
+      this.post({ jsonrpc: "2.0", id, method, params }).catch(
+        (error: unknown) => {
+          this.pending.reject(
+            id,
+            error instanceof Error
+              ? error
+              : new McpConnectionError(String(error)),
+          );
+        },
+      );
+    });
+  }
+
+  private notify(
+    method: string,
+    params: Readonly<Record<string, unknown>>,
+  ): void {
+    this.post({ jsonrpc: "2.0", method, params }).catch(() => {
+      // A dropped notification has no caller to report back to.
+    });
+  }
+
+  private async post(message: unknown): Promise<void> {
+    if (this.postUrl === undefined) {
+      throw new McpConnectionError("SSE endpoint is not ready.");
     }
-    this.pending.delete(message.id);
+    const response = await fetch(this.postUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...this.headers },
+      body: JSON.stringify(message),
+    });
+    if (!response.ok) {
+      throw new McpConnectionError(
+        `SSE POST returned HTTP ${response.status}.`,
+      );
+    }
+  }
+}
+
+interface SseEvent {
+  readonly event: string;
+  readonly data: string;
+}
+
+function parseSseEvent(raw: string): SseEvent {
+  let event = "message";
+  const dataLines: string[] = [];
+  for (const line of raw.split("\n")) {
+    if (line.startsWith("event:")) {
+      event = line.slice(6).trim();
+    } else if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trim());
+    }
+  }
+  return { event, data: dataLines.join("\n") };
+}
+
+const SESSION_ID_HEADER = "mcp-session-id";
+
+class HttpMcpSession implements McpSession {
+  private readonly url: string;
+  private readonly headers: Readonly<Record<string, string>>;
+  private nextId = 1;
+  private sessionId: string | undefined;
+
+  private constructor(url: string, headers: Readonly<Record<string, string>>) {
+    this.url = url;
+    this.headers = headers;
+  }
+
+  static async connect(options: {
+    readonly url: string;
+    readonly headers?: Readonly<Record<string, string>>;
+  }): Promise<HttpMcpSession> {
+    const session = new HttpMcpSession(options.url, options.headers ?? {});
+    await session.request("initialize", {
+      protocolVersion: PROTOCOL_VERSION,
+      capabilities: {},
+      clientInfo: CLIENT_INFO,
+    });
+    await session.notify("notifications/initialized", {});
+    return session;
+  }
+
+  async listTools(): Promise<readonly McpToolDescriptor[]> {
+    const result = (await this.request("tools/list", {})) as
+      | { readonly tools?: readonly McpToolDescriptor[] }
+      | undefined;
+    return result?.tools ?? [];
+  }
+
+  async callTool(
+    name: string,
+    args: Readonly<Record<string, unknown>>,
+  ): Promise<McpToolResult> {
+    return (await this.request("tools/call", {
+      name,
+      arguments: args,
+    })) as McpToolResult;
+  }
+
+  async close(): Promise<void> {
+    this.sessionId = undefined;
+  }
+
+  private buildHeaders(): Record<string, string> {
+    return {
+      "content-type": "application/json",
+      accept: "application/json",
+      ...this.headers,
+      ...(this.sessionId === undefined
+        ? {}
+        : { [SESSION_ID_HEADER]: this.sessionId }),
+    };
+  }
+
+  private async request(
+    method: string,
+    params: Readonly<Record<string, unknown>>,
+  ): Promise<unknown> {
+    const id = this.nextId++;
+    const response = await fetch(this.url, {
+      method: "POST",
+      headers: this.buildHeaders(),
+      body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
+    });
+    const sessionId = response.headers.get(SESSION_ID_HEADER);
+    if (sessionId !== null) {
+      this.sessionId = sessionId;
+    }
+    if (!response.ok) {
+      throw new McpConnectionError(`HTTP ${response.status} from MCP server.`);
+    }
+    const message = (await response.json()) as JsonRpcMessage;
     if (message.error !== undefined) {
-      pending.reject(new McpProtocolError(message.error.message));
-    } else {
-      pending.resolve(message.result);
+      throw new McpProtocolError(message.error.message);
+    }
+    return message.result;
+  }
+
+  private async notify(
+    method: string,
+    params: Readonly<Record<string, unknown>>,
+  ): Promise<void> {
+    const response = await fetch(this.url, {
+      method: "POST",
+      headers: this.buildHeaders(),
+      body: JSON.stringify({ jsonrpc: "2.0", method, params }),
+    });
+    if (!response.ok) {
+      throw new McpConnectionError(`HTTP ${response.status} from MCP server.`);
     }
   }
 }

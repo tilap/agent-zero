@@ -15,10 +15,12 @@ export {
 export type { RunOptions, RunRequest } from "./loop.js";
 export { AgentLoop } from "./loop.js";
 export type {
+  HttpMcpServerOptions,
   McpSession,
   McpToolDescriptor,
   McpToolResult,
   McpToolsetOptions,
+  SseMcpServerOptions,
   StdioMcpServerOptions,
 } from "./mcp.js";
 export { McpToolset } from "./mcp.js";

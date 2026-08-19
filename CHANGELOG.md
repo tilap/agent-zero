@@ -17,6 +17,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   toolset, over a hand-rolled stdio JSON-RPC client. Tool names are
   prefixed per server; `${VAR}` in `env` is substituted from
   `process.env` before spawning.
+- `McpToolset.connectSse` and `.connectHttp`: the same toolset over a
+  hand-rolled SSE or Streamable HTTP connection, with `${VAR}`
+  substitution over `headers` instead of `env`.
 
 ## [0.1.0] - 2026-08-18
 
