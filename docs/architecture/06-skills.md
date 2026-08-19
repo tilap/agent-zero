@@ -2,11 +2,13 @@
 
 ## What this ships
 
-`parseSkill`, `SkillRegistry`, `SkillToolset`, and an `AgentOptions.skills`
-wiring point. A skill is a folder holding a `SKILL.md` file plus optional
-resource files. Nothing here changes `AgentLoop`: skills are a toolset and
-a system-prompt addition, same as tools were in Phase 3 — "more capability
-behind the same fork", not a new one.
+`parseSkill`, `SkillRegistry`, and `SkillToolset`. A skill is a folder
+holding a `SKILL.md` file plus optional resource files. Nothing here
+changes `AgentLoop`: skills are a toolset and a system-prompt addition,
+same as tools were in Phase 3 — "more capability behind the same fork",
+not a new one. Callers wire them the same way they pass any other
+toolset: `systemPrompt: registry.prelude()` and
+`toolsets: [new SkillToolset(registry), ...]`.
 
 ## Public types
 
@@ -42,8 +44,6 @@ export class InvalidSkillError extends Error {}
 export class DuplicateSkillNameError extends Error {}
 ```
 
-`AgentOptions` gains an optional `skills?: SkillRegistry`.
-
 ## Behaviour
 
 - A `SKILL.md` file is `---\nname: …\ndescription: …\n---\n<body>`. Only
@@ -58,7 +58,7 @@ export class DuplicateSkillNameError extends Error {}
 - Three levels of disclosure, matching what a model actually needs at
   each point:
   - **L1** — `SkillRegistry.list()` and `.prelude()` expose only
-    `metadata` (name + description). This is what an `Agent` puts in the
+    `metadata` (name + description). This is what a caller puts in the
     system prompt so the model knows a skill exists without paying for
     its body.
   - **L2** — `Skill.body`, returned by the `load_skill` tool once the
@@ -77,12 +77,10 @@ export class DuplicateSkillNameError extends Error {}
     directory; anything that escapes it (`../…`, an absolute path) is
     rejected as `isError` and is never read. A missing file is likewise
     `isError`.
-- `Agent`: when `options.skills` is set, its constructor appends
-  `registry.prelude()` to the effective system prompt (its own
-  paragraph, after any caller-supplied prompt) and adds
-  `new SkillToolset(options.skills)` to the toolset list. The caller does
-  not wire the catalog toolset by hand. Without `options.skills`,
-  behaviour is unchanged from Phase 5.
+- Wiring is the caller's job, the same as MCP: pass
+  `systemPrompt: registry.prelude()` (after any other prompt text) and
+  include `new SkillToolset(registry)` in `toolsets`. `Agent` has no
+  skills-specific option.
 
 ## Non-goals
 

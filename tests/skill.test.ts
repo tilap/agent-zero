@@ -1,7 +1,11 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DuplicateSkillNameError, InvalidSkillError } from "../src/errors.js";
-import { SkillRegistry, parseSkill } from "../src/skill.js";
+import {
+  DuplicateSkillNameError,
+  InvalidSkillError,
+  SkillRegistry,
+  parseSkill,
+} from "../src/modules/skill/index.js";
 
 const FIXTURES = join(import.meta.dirname, "support/skills");
 

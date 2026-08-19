@@ -1,12 +1,18 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import { BaseToolset } from "../../toolset.js";
+import type { ToolSchema } from "../../toolset.js";
+import type { ToolCall, ToolResult } from "../../types.js";
 import {
   McpConfigError,
   McpConnectionError,
   McpProtocolError,
 } from "./errors.js";
-import { BaseToolset } from "./toolset.js";
-import type { ToolSchema } from "./toolset.js";
-import type { ToolCall, ToolResult } from "./types.js";
+
+export {
+  McpConfigError,
+  McpConnectionError,
+  McpProtocolError,
+} from "./errors.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
 const CLIENT_INFO = { name: "agent-zero", version: "0.1.0" };

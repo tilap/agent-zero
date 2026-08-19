@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { McpConnectionError } from "../src/errors.js";
-import { McpToolset } from "../src/mcp.js";
+import { McpConnectionError, McpToolset } from "../src/modules/mcp/index.js";
 import type { HttpFixtureHandle } from "./support/mcp-http-fixture.js";
 import { startHttpFixture } from "./support/mcp-http-fixture.js";
 

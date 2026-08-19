@@ -1,7 +1,10 @@
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { McpConfigError, McpConnectionError } from "../src/errors.js";
-import { McpToolset } from "../src/mcp.js";
+import {
+  McpConfigError,
+  McpConnectionError,
+  McpToolset,
+} from "../src/modules/mcp/index.js";
 
 const FIXTURE = join(import.meta.dirname, "fixtures/mcp/stdio-server.mjs");
 const TOKEN_VAR = "MCP_TEST_TOKEN";

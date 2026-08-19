@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Agent } from "../src/agent.js";
 import type { Hooks } from "../src/hooks.js";
-import { ScriptedProvider } from "../src/provider.js";
+import { ScriptedProvider } from "../src/providers/scripted.js";
 
 describe("Agent with hooks", () => {
   it("threads hooks through to the loop", async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MAX_TOOL_RESULT_CHARS, TruncatingCompactor } from "../src/context.js";
 import { AgentLoop } from "../src/loop.js";
-import { ScriptedProvider } from "../src/provider.js";
+import { ScriptedProvider } from "../src/providers/scripted.js";
 import type { Event, Message } from "../src/types.js";
 import { HugeToolset } from "./support/huge-toolset.js";
 import { RecordingToolset } from "./support/recording-toolset.js";

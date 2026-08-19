@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Agent } from "../src/agent.js";
 import { MaxRoundsExceededError } from "../src/errors.js";
 import { AgentLoop } from "../src/loop.js";
-import { ScriptedProvider } from "../src/provider.js";
+import { ScriptedProvider } from "../src/providers/scripted.js";
 import type { Event } from "../src/types.js";
 import { CalculatorToolset } from "./support/calculator.js";
 import { LoopingProvider } from "./support/looping-provider.js";
