@@ -23,4 +23,21 @@ tests and for trying the runtime without wiring up an API key. A hosted
 provider ships in a later phase; until then, bring your own `LlmProvider`
 by implementing its one method, `chat`.
 
+## Beyond the loop
+
+Everything else attaches to that one loop as a toolset or a hook —
+nothing here reopens it:
+
+- **Tools** — implement `BaseToolset` and pass it to `Agent`. Unknown
+  tools and toolset throws become results the model can read, not
+  exceptions.
+- **Skills** — `SkillRegistry.fromDirectory` discovers `SKILL.md` files;
+  pass `registry.prelude()` as the system prompt and
+  `new SkillToolset(registry)` in `toolsets`, the same way as MCP.
+- **MCP** — `McpToolset.connectStdio` / `.connectSse` / `.connectHttp`
+  wrap an MCP server as a toolset, tool names prefixed per server.
+- **Hooks** — `AgentOptions.hooks` (`beforeModel`, `afterModel`,
+  `beforeTool`, `afterTool`) can short-circuit or replace a model
+  response or a tool result without writing a toolset.
+
 Setup and development commands: see [docs/INDEX.md](docs/INDEX.md).

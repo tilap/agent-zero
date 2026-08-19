@@ -24,7 +24,7 @@ function textResult(text: string) {
 }
 
 // Test fixture: a tiny in-process HTTP server speaking the single-JSON-
-// response subset of MCP's Streamable HTTP transport that src/mcp.ts
+// response subset of MCP's Streamable HTTP transport that src/modules/mcp
 // implements — one POST per JSON-RPC message, an Mcp-Session-Id header
 // captured from the initialize response.
 export async function startHttpFixture(): Promise<HttpFixtureHandle> {
