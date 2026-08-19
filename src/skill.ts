@@ -1,6 +1,9 @@
 import { readFile, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { DuplicateSkillNameError, InvalidSkillError } from "./errors.js";
+import { BaseToolset } from "./toolset.js";
+import type { ToolContext, ToolSchema } from "./toolset.js";
+import type { ToolCall, ToolResult } from "./types.js";
 
 const FRONTMATTER_DELIMITER = "---";
 
@@ -126,5 +129,131 @@ export class SkillRegistry {
     return this.skills
       .map((skill) => `${skill.metadata.name}: ${skill.metadata.description}`)
       .join("\n");
+  }
+}
+
+function stringArg(
+  args: Readonly<Record<string, unknown>>,
+  key: string,
+): string | undefined {
+  const value = args[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function unknownSkillResult(
+  callId: string,
+  registry: SkillRegistry,
+  name: string | undefined,
+): ToolResult {
+  const known = registry
+    .list()
+    .map((metadata) => metadata.name)
+    .join(", ");
+  return {
+    callId,
+    content: `Unknown skill: ${name ?? "(missing name)"}. Known skills: ${known}`,
+    isError: true,
+  };
+}
+
+export class SkillToolset extends BaseToolset {
+  private readonly registry: SkillRegistry;
+
+  constructor(registry: SkillRegistry) {
+    super();
+    this.registry = registry;
+  }
+
+  async listTools(): Promise<readonly ToolSchema[]> {
+    return [
+      {
+        name: "list_skills",
+        description: "List available skills, by name and short description.",
+        parameters: { type: "object", properties: {} },
+      },
+      {
+        name: "load_skill",
+        description: "Load the full instructions for one skill by name.",
+        parameters: {
+          type: "object",
+          properties: { name: { type: "string" } },
+          required: ["name"],
+        },
+      },
+      {
+        name: "load_skill_resource",
+        description:
+          "Load one resource file belonging to a skill, by path relative to the skill.",
+        parameters: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            path: { type: "string" },
+          },
+          required: ["name", "path"],
+        },
+      },
+    ];
+  }
+
+  async execute(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+    if (call.name === "list_skills") {
+      return { callId: call.id, content: this.registry.prelude() };
+    }
+
+    if (call.name === "load_skill") {
+      const name = stringArg(call.arguments, "name");
+      const skill = name === undefined ? undefined : this.registry.get(name);
+      if (skill === undefined) {
+        return unknownSkillResult(call.id, this.registry, name);
+      }
+      return { callId: call.id, content: skill.body };
+    }
+
+    if (call.name === "load_skill_resource") {
+      const name = stringArg(call.arguments, "name");
+      const path = stringArg(call.arguments, "path");
+      const skill = name === undefined ? undefined : this.registry.get(name);
+      if (skill === undefined) {
+        return unknownSkillResult(call.id, this.registry, name);
+      }
+      if (path === undefined) {
+        return {
+          callId: call.id,
+          content: "Missing required argument: path.",
+          isError: true,
+        };
+      }
+
+      const skillDirectory = resolve(skill.directory);
+      const resourcePath = resolve(skillDirectory, path);
+      if (
+        resourcePath !== skillDirectory &&
+        !resourcePath.startsWith(skillDirectory + sep)
+      ) {
+        return {
+          callId: call.id,
+          content: `Resource path escapes the skill directory: ${path}`,
+          isError: true,
+        };
+      }
+
+      try {
+        const content = await readFile(resourcePath, "utf8");
+        return { callId: call.id, content };
+      } catch {
+        return {
+          callId: call.id,
+          content: `Resource not found: ${path}`,
+          isError: true,
+        };
+      }
+    }
+
+    return {
+      callId: call.id,
+      content: `Unknown tool: ${call.name}. Available: list_skills, load_skill, load_skill_resource`,
+      isError: true,
+    };
   }
 }
