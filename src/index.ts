@@ -6,14 +6,9 @@ export type {
 } from "./context.js";
 export { MAX_TOOL_RESULT_CHARS, TruncatingCompactor } from "./context.js";
 export {
-  DuplicateSkillNameError,
   DuplicateToolNameError,
-  InvalidSkillError,
   InvalidTranscriptError,
   MaxRoundsExceededError,
-  McpConfigError,
-  McpConnectionError,
-  McpProtocolError,
   ScriptExhaustedError,
   UnsupportedOptionError,
 } from "./errors.js";
@@ -38,17 +33,24 @@ export type {
   McpToolsetOptions,
   SseMcpServerOptions,
   StdioMcpServerOptions,
-} from "./mcp.js";
-export { McpToolset } from "./mcp.js";
-export type {
-  LlmProvider,
-  LlmRequest,
-  LlmResponse,
-  ScriptedTurn,
-} from "./provider.js";
-export { ScriptedProvider } from "./provider.js";
-export type { Skill, SkillMetadata } from "./skill.js";
-export { parseSkill, SkillRegistry, SkillToolset } from "./skill.js";
+} from "./modules/mcp/index.js";
+export {
+  McpConfigError,
+  McpConnectionError,
+  McpProtocolError,
+  McpToolset,
+} from "./modules/mcp/index.js";
+export type { Skill, SkillMetadata } from "./modules/skill/index.js";
+export {
+  DuplicateSkillNameError,
+  InvalidSkillError,
+  parseSkill,
+  SkillRegistry,
+  SkillToolset,
+} from "./modules/skill/index.js";
+export type { LlmProvider, LlmRequest, LlmResponse } from "./provider.js";
+export type { ScriptedTurn } from "./providers/scripted.js";
+export { ScriptedProvider } from "./providers/scripted.js";
 export type { ToolContext, ToolSchema } from "./toolset.js";
 export { BaseToolset, ToolsetRouter } from "./toolset.js";
 export type { Event, Message, ToolCall, ToolResult } from "./types.js";

@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { Agent } from "../src/agent.js";
-import { ScriptedProvider } from "../src/provider.js";
-import { SkillRegistry } from "../src/skill.js";
+import { SkillRegistry, SkillToolset } from "../src/modules/skill/index.js";
+import { ScriptedProvider } from "../src/providers/scripted.js";
 
 const FIXTURES = join(import.meta.dirname, "support/skills");
 
@@ -10,7 +10,11 @@ describe("Agent with skills", () => {
   it("composes the skill prelude into the system prompt", async () => {
     const registry = await SkillRegistry.fromDirectory(FIXTURES);
     const provider = new ScriptedProvider([{ text: "done" }]);
-    const agent = new Agent({ provider, skills: registry });
+    const agent = new Agent({
+      provider,
+      systemPrompt: registry.prelude(),
+      toolsets: [new SkillToolset(registry)],
+    });
 
     await agent.runSync("hi");
 
@@ -21,7 +25,7 @@ describe("Agent with skills", () => {
     expect(system?.content).toContain(registry.prelude());
   });
 
-  it("wires the skill catalog toolset without the caller passing toolsets", async () => {
+  it("runs a skill catalog tool when the caller passes SkillToolset", async () => {
     const registry = await SkillRegistry.fromDirectory(FIXTURES);
     const provider = new ScriptedProvider([
       {
@@ -32,7 +36,11 @@ describe("Agent with skills", () => {
       },
       { text: "loaded" },
     ]);
-    const agent = new Agent({ provider, skills: registry });
+    const agent = new Agent({
+      provider,
+      systemPrompt: registry.prelude(),
+      toolsets: [new SkillToolset(registry)],
+    });
 
     const result = await agent.runSync("load the writer skill");
 
@@ -45,8 +53,8 @@ describe("Agent with skills", () => {
     const provider = new ScriptedProvider([{ text: "done" }]);
     const agent = new Agent({
       provider,
-      skills: registry,
-      systemPrompt: "You are a careful assistant.",
+      systemPrompt: `You are a careful assistant.\n\n${registry.prelude()}`,
+      toolsets: [new SkillToolset(registry)],
     });
 
     await agent.runSync("hi");

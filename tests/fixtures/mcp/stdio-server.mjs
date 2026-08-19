@@ -1,5 +1,5 @@
 // Test fixture: a tiny hand-written MCP server, speaking the same
-// newline-delimited JSON-RPC subset the stdio client in src/mcp.ts
+// newline-delimited JSON-RPC subset the stdio client in src/modules/mcp
 // expects. It exists to give the client something real to talk to
 // without depending on a third-party MCP implementation.
 import { createInterface } from "node:readline";

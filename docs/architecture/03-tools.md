@@ -69,8 +69,8 @@ gain an optional `toolCalls`.
 - After a tool round the transcript holds one `assistant` message
   carrying `toolCalls`, then one `tool` message per call, in call order.
 - Execution is **sequential**. Concurrent execution is a behavioural
-  change (result ordering, shared state) and gets its own phase (10), not
-  bundled here as an optimisation.
+  change (result ordering, shared state) and gets its own later
+  increment, not bundled here as an optimisation.
 - `ToolsetRouter.listTools()` throws `DuplicateToolNameError` on a name
   collision across toolsets — a setup mistake, thrown eagerly.
 - `ToolsetRouter.execute()` on an unknown name returns

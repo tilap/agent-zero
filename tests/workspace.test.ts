@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { Agent } from "../src/agent.js";
 import type { LlmProvider, LlmRequest, LlmResponse } from "../src/provider.js";
-import { ScriptedProvider } from "../src/provider.js";
+import { ScriptedProvider } from "../src/providers/scripted.js";
 import { WorkspaceProbeToolset } from "./support/workspace-probe.js";
 
 describe("Agent workspace lifecycle", () => {

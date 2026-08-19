@@ -2,7 +2,7 @@ import type {
   McpSession,
   McpToolDescriptor,
   McpToolResult,
-} from "../../src/mcp.js";
+} from "../../src/modules/mcp/index.js";
 
 export interface FakeCall {
   readonly name: string;

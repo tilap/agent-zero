@@ -22,7 +22,7 @@ function textResult(text: string) {
 }
 
 // Test fixture: a tiny in-process SSE server speaking the legacy
-// HTTP+SSE subset of MCP that src/mcp.ts implements — a GET stream
+// HTTP+SSE subset of MCP that src/modules/mcp implements — a GET stream
 // announcing a POST endpoint via an "endpoint" event, JSON-RPC
 // responses delivered asynchronously as "message" events.
 export async function startSseFixture(): Promise<SseFixtureHandle> {

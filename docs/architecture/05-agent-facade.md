@@ -3,9 +3,12 @@
 ## What this ships
 
 `Agent` (`run` / `runSync`), `RunResult`, and a per-run workspace. The
-runner that drives the loop stays private behind `Agent` until Phase 10 —
-this is the first phase with a public entry point (`src/index.ts`), so
-anything not re-exported from it is an implementation detail.
+runner that drives the loop stays private behind `Agent` — this is the
+first increment with a public entry point (`src/index.ts`), so anything
+not re-exported from it is an implementation detail. Later increments
+add `hooks` (09) and `contextCompactor` (10) to `AgentOptions`. Skills
+are not an Agent option; wire them as a system prompt plus a toolset
+(06), the same way as MCP.
 
 ## Public types
 
@@ -73,5 +76,5 @@ export interface ToolContext {
 
 ## Non-goals
 
-Parallel tool execution, steering, hooks, skills, history — all later
-phases. `Runner` is not exported; the façade is the only public surface.
+Parallel tool execution and steering. `Runner` is not exported; the
+façade is the only public surface.

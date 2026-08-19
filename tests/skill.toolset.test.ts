@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { SkillRegistry, SkillToolset } from "../src/skill.js";
+import { SkillRegistry, SkillToolset } from "../src/modules/skill/index.js";
 
 const FIXTURES = join(import.meta.dirname, "support/skills");
 

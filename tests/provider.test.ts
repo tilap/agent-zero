@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ScriptExhaustedError } from "../src/errors.js";
-import { ScriptedProvider } from "../src/provider.js";
+import { ScriptedProvider } from "../src/providers/scripted.js";
 
 describe("ScriptedProvider", () => {
   it("returns the first scripted text", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { McpToolset } from "../src/mcp.js";
+import { McpToolset } from "../src/modules/mcp/index.js";
 import { ToolsetRouter } from "../src/toolset.js";
 import { FakeMcpSession } from "./support/fake-mcp-session.js";
 

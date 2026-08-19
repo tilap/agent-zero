@@ -10,9 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `SkillRegistry`, `SkillToolset`, and `parseSkill`: discover `SKILL.md`
   files, expose their catalog to a model, and load a skill's body or
-  resource files on demand.
-- `AgentOptions.skills`: wires a `SkillRegistry` into an `Agent`'s system
-  prompt and toolsets automatically.
+  resource files on demand. Callers pass `registry.prelude()` as the
+  system prompt and `new SkillToolset(registry)` in `toolsets`.
 - `McpToolset` and `McpToolset.connectStdio`: an MCP server, wrapped as a
   toolset, over a hand-rolled stdio JSON-RPC client. Tool names are
   prefixed per server; `${VAR}` in `env` is substituted from
