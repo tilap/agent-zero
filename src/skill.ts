@@ -1,4 +1,6 @@
-import { InvalidSkillError } from "./errors.js";
+import { readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
+import { DuplicateSkillNameError, InvalidSkillError } from "./errors.js";
 
 const FRONTMATTER_DELIMITER = "---";
 
@@ -50,7 +52,10 @@ export function parseSkill(source: string, directory: string): Skill {
     if (separator === -1) {
       continue;
     }
-    fields.set(line.slice(0, separator).trim(), line.slice(separator + 1).trim());
+    fields.set(
+      line.slice(0, separator).trim(),
+      line.slice(separator + 1).trim(),
+    );
   }
 
   const name = readFrontmatterField(fields, "name", directory);
@@ -66,4 +71,60 @@ export function parseSkill(source: string, directory: string): Skill {
     directory,
     body: bodyLines.join("\n").trimEnd(),
   };
+}
+
+const SKILL_FILE_NAME = "SKILL.md";
+
+export class SkillRegistry {
+  private readonly skills: readonly Skill[];
+  private readonly byName: ReadonlyMap<string, Skill>;
+
+  constructor(skills: readonly Skill[]) {
+    const byName = new Map<string, Skill>();
+    for (const skill of skills) {
+      if (byName.has(skill.metadata.name)) {
+        throw new DuplicateSkillNameError(
+          `Duplicate skill name: "${skill.metadata.name}".`,
+        );
+      }
+      byName.set(skill.metadata.name, skill);
+    }
+    this.skills = skills;
+    this.byName = byName;
+  }
+
+  static async fromDirectory(root: string): Promise<SkillRegistry> {
+    const entries = await readdir(root, { withFileTypes: true });
+    const skills: Skill[] = [];
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+      const directory = join(root, entry.name);
+      let source: string;
+      try {
+        source = await readFile(join(directory, SKILL_FILE_NAME), "utf8");
+      } catch {
+        continue;
+      }
+      skills.push(parseSkill(source, directory));
+    }
+
+    return new SkillRegistry(skills);
+  }
+
+  list(): readonly SkillMetadata[] {
+    return this.skills.map((skill) => skill.metadata);
+  }
+
+  get(name: string): Skill | undefined {
+    return this.byName.get(name);
+  }
+
+  prelude(): string {
+    return this.skills
+      .map((skill) => `${skill.metadata.name}: ${skill.metadata.description}`)
+      .join("\n");
+  }
 }
