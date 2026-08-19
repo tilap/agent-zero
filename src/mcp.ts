@@ -204,6 +204,36 @@ export class McpToolset extends BaseToolset {
       ...(options.only === undefined ? {} : { only: options.only }),
     });
   }
+
+  static async connectHttp(options: HttpMcpServerOptions): Promise<McpToolset> {
+    const headers =
+      options.headers === undefined
+        ? undefined
+        : substituteEnv(options.headers);
+    let session: HttpMcpSession;
+    try {
+      session = await HttpMcpSession.connect({
+        url: options.url,
+        ...(headers === undefined ? {} : { headers }),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new McpConnectionError(
+        `Failed to connect to MCP server "${options.name}": ${message}`,
+      );
+    }
+    return new McpToolset(session, {
+      name: options.name,
+      ...(options.only === undefined ? {} : { only: options.only }),
+    });
+  }
+}
+
+export interface HttpMcpServerOptions {
+  readonly name: string;
+  readonly url: string;
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly only?: readonly string[];
 }
 
 export interface SseMcpServerOptions {
@@ -519,6 +549,104 @@ function parseSseEvent(raw: string): SseEvent {
     }
   }
   return { event, data: dataLines.join("\n") };
+}
+
+const SESSION_ID_HEADER = "mcp-session-id";
+
+class HttpMcpSession implements McpSession {
+  private readonly url: string;
+  private readonly headers: Readonly<Record<string, string>>;
+  private nextId = 1;
+  private sessionId: string | undefined;
+
+  private constructor(url: string, headers: Readonly<Record<string, string>>) {
+    this.url = url;
+    this.headers = headers;
+  }
+
+  static async connect(options: {
+    readonly url: string;
+    readonly headers?: Readonly<Record<string, string>>;
+  }): Promise<HttpMcpSession> {
+    const session = new HttpMcpSession(options.url, options.headers ?? {});
+    await session.request("initialize", {
+      protocolVersion: PROTOCOL_VERSION,
+      capabilities: {},
+      clientInfo: CLIENT_INFO,
+    });
+    await session.notify("notifications/initialized", {});
+    return session;
+  }
+
+  async listTools(): Promise<readonly McpToolDescriptor[]> {
+    const result = (await this.request("tools/list", {})) as
+      | { readonly tools?: readonly McpToolDescriptor[] }
+      | undefined;
+    return result?.tools ?? [];
+  }
+
+  async callTool(
+    name: string,
+    args: Readonly<Record<string, unknown>>,
+  ): Promise<McpToolResult> {
+    return (await this.request("tools/call", {
+      name,
+      arguments: args,
+    })) as McpToolResult;
+  }
+
+  async close(): Promise<void> {
+    this.sessionId = undefined;
+  }
+
+  private buildHeaders(): Record<string, string> {
+    return {
+      "content-type": "application/json",
+      accept: "application/json",
+      ...this.headers,
+      ...(this.sessionId === undefined
+        ? {}
+        : { [SESSION_ID_HEADER]: this.sessionId }),
+    };
+  }
+
+  private async request(
+    method: string,
+    params: Readonly<Record<string, unknown>>,
+  ): Promise<unknown> {
+    const id = this.nextId++;
+    const response = await fetch(this.url, {
+      method: "POST",
+      headers: this.buildHeaders(),
+      body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
+    });
+    const sessionId = response.headers.get(SESSION_ID_HEADER);
+    if (sessionId !== null) {
+      this.sessionId = sessionId;
+    }
+    if (!response.ok) {
+      throw new McpConnectionError(`HTTP ${response.status} from MCP server.`);
+    }
+    const message = (await response.json()) as JsonRpcMessage;
+    if (message.error !== undefined) {
+      throw new McpProtocolError(message.error.message);
+    }
+    return message.result;
+  }
+
+  private async notify(
+    method: string,
+    params: Readonly<Record<string, unknown>>,
+  ): Promise<void> {
+    const response = await fetch(this.url, {
+      method: "POST",
+      headers: this.buildHeaders(),
+      body: JSON.stringify({ jsonrpc: "2.0", method, params }),
+    });
+    if (!response.ok) {
+      throw new McpConnectionError(`HTTP ${response.status} from MCP server.`);
+    }
+  }
 }
 
 const ENV_VAR_PATTERN = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
