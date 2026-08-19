@@ -6,11 +6,22 @@ export {
   InvalidSkillError,
   InvalidTranscriptError,
   MaxRoundsExceededError,
+  McpConfigError,
+  McpConnectionError,
+  McpProtocolError,
   ScriptExhaustedError,
   UnsupportedOptionError,
 } from "./errors.js";
 export type { RunOptions, RunRequest } from "./loop.js";
 export { AgentLoop } from "./loop.js";
+export type {
+  McpSession,
+  McpToolDescriptor,
+  McpToolResult,
+  McpToolsetOptions,
+  StdioMcpServerOptions,
+} from "./mcp.js";
+export { McpToolset } from "./mcp.js";
 export type {
   LlmProvider,
   LlmRequest,

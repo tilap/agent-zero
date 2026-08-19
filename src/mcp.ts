@@ -1,5 +1,9 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
-import { McpConnectionError, McpProtocolError } from "./errors.js";
+import {
+  McpConfigError,
+  McpConnectionError,
+  McpProtocolError,
+} from "./errors.js";
 import { BaseToolset } from "./toolset.js";
 import type { ToolSchema } from "./toolset.js";
 import type { ToolCall, ToolResult } from "./types.js";
@@ -92,9 +96,15 @@ export class McpToolset extends BaseToolset {
   static async connectStdio(
     options: StdioMcpServerOptions,
   ): Promise<McpToolset> {
+    const env =
+      options.env === undefined ? undefined : substituteEnv(options.env);
     let session: StdioMcpSession;
     try {
-      session = await StdioMcpSession.connect(options);
+      session = await StdioMcpSession.connect({
+        command: options.command,
+        ...(options.args === undefined ? {} : { args: options.args }),
+        ...(env === undefined ? {} : { env }),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new McpConnectionError(
@@ -258,4 +268,24 @@ class StdioMcpSession implements McpSession {
       pending.resolve(message.result);
     }
   }
+}
+
+const ENV_VAR_PATTERN = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+
+function substituteEnv(
+  record: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(record)) {
+    result[key] = value.replace(ENV_VAR_PATTERN, (_match, name: string) => {
+      const resolved = process.env[name];
+      if (resolved === undefined) {
+        throw new McpConfigError(
+          `Missing environment variable "${name}" referenced by "${key}".`,
+        );
+      }
+      return resolved;
+    });
+  }
+  return result;
 }
