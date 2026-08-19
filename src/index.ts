@@ -1,5 +1,10 @@
 export type { AgentOptions, RunResult, StopReason } from "./agent.js";
 export { Agent } from "./agent.js";
+export type {
+  ContextCompactor,
+  TruncatingCompactorOptions,
+} from "./context.js";
+export { MAX_TOOL_RESULT_CHARS, TruncatingCompactor } from "./context.js";
 export {
   DuplicateSkillNameError,
   DuplicateToolNameError,

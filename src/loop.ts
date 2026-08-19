@@ -1,3 +1,5 @@
+import type { ContextCompactor } from "./context.js";
+import { clipToolResult } from "./context.js";
 import { MaxRoundsExceededError, UnsupportedOptionError } from "./errors.js";
 import type { Hooks } from "./hooks.js";
 import type { LlmProvider, LlmRequest, LlmResponse } from "./provider.js";
@@ -11,6 +13,7 @@ const DEFAULT_MAX_ROUNDS = 10;
 export interface RunRequest {
   readonly userMessage: string;
   readonly systemPrompt?: string;
+  readonly priorMessages?: readonly Message[];
   readonly maxRounds?: number;
   readonly stream?: boolean;
 }
@@ -45,16 +48,19 @@ export class AgentLoop {
   private readonly toolsets: readonly BaseToolset[];
   private readonly router: ToolsetRouter;
   private readonly hooks: Hooks | undefined;
+  private readonly contextCompactor: ContextCompactor | undefined;
 
   constructor(options: {
     readonly provider: LlmProvider;
     readonly toolsets?: readonly BaseToolset[];
     readonly hooks?: Hooks;
+    readonly contextCompactor?: ContextCompactor;
   }) {
     this.provider = options.provider;
     this.toolsets = options.toolsets ?? [];
     this.router = new ToolsetRouter(this.toolsets);
     this.hooks = options.hooks;
+    this.contextCompactor = options.contextCompactor;
   }
 
   async *run(
@@ -72,10 +78,11 @@ export class AgentLoop {
     const maxRounds = request.maxRounds ?? DEFAULT_MAX_ROUNDS;
     const hasTools = this.toolsets.length > 0;
 
-    const messages: Message[] = [];
+    let messages: Message[] = [];
     if (request.systemPrompt !== undefined) {
       messages.push({ role: "system", content: request.systemPrompt });
     }
+    messages.push(...(request.priorMessages ?? []));
     messages.push({ role: "user", content: request.userMessage });
     validateMessages(messages);
 
@@ -83,6 +90,18 @@ export class AgentLoop {
       if (signal?.aborted) {
         yield { type: "cancelled" };
         return;
+      }
+
+      if (this.contextCompactor !== undefined) {
+        const compacted = await this.contextCompactor.compact(messages);
+        if (compacted.length !== messages.length) {
+          yield {
+            type: "context_compacted",
+            before: messages.length,
+            after: compacted.length,
+          };
+          messages = [...compacted];
+        }
       }
 
       const isLastRound = round === maxRounds;
@@ -176,6 +195,7 @@ export class AgentLoop {
           return;
         }
 
+        result = clipToolResult(result);
         yield { type: "tool_result", result };
         messages.push(toToolMessage(result));
         if (signal?.aborted) {

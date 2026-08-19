@@ -1,3 +1,4 @@
+import type { ContextCompactor } from "./context.js";
 import { MaxRoundsExceededError } from "./errors.js";
 import type { Hooks } from "./hooks.js";
 import type { RunRequest } from "./loop.js";
@@ -17,6 +18,7 @@ export interface AgentOptions {
   readonly workspace?: WorkspaceOptions;
   readonly skills?: SkillRegistry;
   readonly hooks?: Hooks;
+  readonly contextCompactor?: ContextCompactor;
 }
 
 export type StopReason = "final_text" | "max_rounds" | "cancelled" | "error";
@@ -98,6 +100,9 @@ export class Agent {
         ? {}
         : { workspace: options.workspace }),
       ...(options.hooks === undefined ? {} : { hooks: options.hooks }),
+      ...(options.contextCompactor === undefined
+        ? {}
+        : { contextCompactor: options.contextCompactor }),
     });
   }
 
