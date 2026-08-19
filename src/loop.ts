@@ -152,7 +152,30 @@ export class AgentLoop {
           return;
         }
         yield { type: "tool_call", call };
-        const result = await this.router.execute(call, toolContext);
+
+        let result: ToolResult;
+        try {
+          const shortCircuit =
+            this.hooks?.beforeTool === undefined
+              ? undefined
+              : await this.hooks.beforeTool({ call });
+          if (shortCircuit !== undefined) {
+            result = shortCircuit;
+          } else {
+            result = await this.router.execute(call, toolContext);
+            const replaced =
+              this.hooks?.afterTool === undefined
+                ? undefined
+                : await this.hooks.afterTool({ call, result });
+            if (replaced !== undefined) {
+              result = replaced;
+            }
+          }
+        } catch (error) {
+          yield { type: "error", error: toError(error) };
+          return;
+        }
+
         yield { type: "tool_result", result };
         messages.push(toToolMessage(result));
         if (signal?.aborted) {
