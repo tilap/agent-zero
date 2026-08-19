@@ -1,7 +1,9 @@
 export type { AgentOptions, RunResult, StopReason } from "./agent.js";
 export { Agent } from "./agent.js";
 export {
+  DuplicateSkillNameError,
   DuplicateToolNameError,
+  InvalidSkillError,
   InvalidTranscriptError,
   MaxRoundsExceededError,
   ScriptExhaustedError,
@@ -16,6 +18,8 @@ export type {
   ScriptedTurn,
 } from "./provider.js";
 export { ScriptedProvider } from "./provider.js";
+export type { Skill, SkillMetadata } from "./skill.js";
+export { parseSkill, SkillRegistry, SkillToolset } from "./skill.js";
 export type { ToolContext, ToolSchema } from "./toolset.js";
 export { BaseToolset, ToolsetRouter } from "./toolset.js";
 export type { Event, Message, ToolCall, ToolResult } from "./types.js";

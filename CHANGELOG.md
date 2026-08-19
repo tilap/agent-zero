@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `SkillRegistry`, `SkillToolset`, and `parseSkill`: discover `SKILL.md`
+  files, expose their catalog to a model, and load a skill's body or
+  resource files on demand.
+- `AgentOptions.skills`: wires a `SkillRegistry` into an `Agent`'s system
+  prompt and toolsets automatically.
+
 ## [0.1.0] - 2026-08-18
 
 ### Added
