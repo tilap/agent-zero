@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { UnsupportedOptionError } from "../src/errors.js";
 import { AgentLoop } from "../src/loop.js";
+import type { LlmProvider } from "../src/provider.js";
 import { ScriptedProvider } from "../src/providers/scripted.js";
 import type { Event } from "../src/types.js";
 
@@ -51,13 +52,21 @@ describe("AgentLoop", () => {
     ]);
   });
 
-  it("rejects stream before calling the provider", async () => {
-    const provider = new ScriptedProvider([{ text: "hello" }]);
+  it("rejects stream before calling a provider without chatStream", async () => {
+    // ScriptedProvider implements chatStream (Phase 17) — a provider that
+    // does not is the one that still needs to reject stream: true.
+    const calls: unknown[] = [];
+    const provider: LlmProvider = {
+      chat: async (request) => {
+        calls.push(request);
+        return { text: "unreachable" };
+      },
+    };
     const loop = new AgentLoop({ provider });
     await expect(
       collect(loop.run({ userMessage: "hi", stream: true })),
     ).rejects.toThrow(UnsupportedOptionError);
-    expect(provider.requests).toEqual([]);
+    expect(calls).toEqual([]);
   });
 
   it("completes the generator right after final_text", async () => {
