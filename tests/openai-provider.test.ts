@@ -269,7 +269,9 @@ describe("OpenAiProvider chat", () => {
   });
 
   it("waits for a Retry-After HTTP-date value before retrying", async () => {
-    const retryAt = new Date(Date.now() + 1_000);
+    // toUTCString() truncates to whole seconds, so a 2s horizon keeps the
+    // asserted floor safely below the worst-case ~1s rounding loss.
+    const retryAt = new Date(Date.now() + 2_000);
     const fixture = await startOpenAiHttpFixture([
       {
         type: "json",
