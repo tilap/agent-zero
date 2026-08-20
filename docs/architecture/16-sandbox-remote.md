@@ -42,7 +42,9 @@ export class McpSandboxRunner implements SandboxRunner {
 
 ## Behaviour
 
-**`RemoteSandboxRunner`'s HTTP contract.**
+**`RemoteSandboxRunner`'s HTTP contract.** `exec`/`read`/`write`
+throw `SandboxNotReadyError` — a client-side check, no request sent —
+before `setup()` has run, same contract `LocalDirRunner` already has.
 
 - `setup()` → `POST {baseUrl}/sessions`, response `{ sessionId }`,
   stored for every later call.
@@ -68,9 +70,13 @@ connected. `setup()` is a no-op (the toolset is already connected by
 the time it is passed in). `aclose()` calls the toolset's own public
 `close()` (which closes its underlying session). Every
 `SandboxRunner` method calls `toolset.execute({ id, name:
-toolNames.<x>, arguments }, { signal })` — i.e. goes through
-`McpToolset`'s already-public `BaseToolset.execute`, never a new
-session API; nothing under `src/modules/mcp/` changes.
+toolNames.<x>, arguments })` — i.e. goes through `McpToolset`'s
+already-public `execute`, never a new session API; nothing under
+`src/modules/mcp/` changes. `McpToolset.execute` takes no
+`ToolContext`, so `SandboxExecOptions.signal` is accepted by
+`McpSandboxRunner.exec` for interface conformance but has nothing to
+forward to — cancelling an in-flight MCP tool call is not something
+this phase adds.
 
 - `exec`: the remote tool's text content must be a JSON string shaped
   `{ stdout, stderr, exitCode }`. A parse failure, or `result.isError`

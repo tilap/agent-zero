@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { BaseToolset } from "../../toolset.js";
 import type { ToolContext, ToolSchema } from "../../toolset.js";
 import type { ToolCall, ToolResult } from "../../types.js";
+import type { McpToolset } from "../mcp/index.js";
 import {
   SandboxExecError,
   SandboxIoError,
@@ -263,5 +264,233 @@ export class SandboxToolset extends BaseToolset {
       content: `Unknown tool: ${call.name}. Available: exec, read, write`,
       isError: true,
     };
+  }
+}
+
+export interface RemoteSandboxRunnerOptions {
+  readonly baseUrl: string;
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly fetch?: typeof fetch;
+}
+
+export class RemoteSandboxRunner implements SandboxRunner {
+  private readonly baseUrl: string;
+  private readonly headers: Readonly<Record<string, string>>;
+  private readonly fetchImpl: typeof fetch;
+  private sessionId: string | undefined;
+
+  constructor(options: RemoteSandboxRunnerOptions) {
+    this.baseUrl = options.baseUrl.endsWith("/")
+      ? options.baseUrl
+      : `${options.baseUrl}/`;
+    this.headers = options.headers ?? {};
+    this.fetchImpl = options.fetch ?? fetch;
+  }
+
+  private requireSessionId(): string {
+    if (this.sessionId === undefined) {
+      throw new SandboxNotReadyError("Call setup() before using the sandbox.");
+    }
+    return this.sessionId;
+  }
+
+  async setup(): Promise<void> {
+    const res = await this.fetchImpl(new URL("sessions", this.baseUrl), {
+      method: "POST",
+      headers: this.headers,
+    });
+    if (!res.ok) {
+      throw new SandboxExecError(
+        `Failed to create a sandbox session: ${res.status}`,
+      );
+    }
+    const body = (await res.json()) as { readonly sessionId: string };
+    this.sessionId = body.sessionId;
+  }
+
+  async exec(
+    command: string,
+    options?: SandboxExecOptions,
+  ): Promise<SandboxExecResult> {
+    const id = this.requireSessionId();
+    const res = await this.fetchImpl(
+      new URL(`sessions/${id}/exec`, this.baseUrl),
+      {
+        method: "POST",
+        headers: { ...this.headers, "content-type": "application/json" },
+        body: JSON.stringify({
+          command,
+          ...(options?.cwd !== undefined ? { cwd: options.cwd } : {}),
+          ...(options?.timeoutMs !== undefined
+            ? { timeoutMs: options.timeoutMs }
+            : {}),
+        }),
+        ...(options?.signal !== undefined ? { signal: options.signal } : {}),
+      },
+    );
+    if (!res.ok) {
+      throw new SandboxExecError(`Sandbox exec request failed: ${res.status}`);
+    }
+    const body = (await res.json()) as
+      | {
+          readonly stdout: string;
+          readonly stderr: string;
+          readonly exitCode: number;
+        }
+      | { readonly timedOut: true };
+    if ("timedOut" in body) {
+      const suffix =
+        options?.timeoutMs !== undefined ? ` after ${options.timeoutMs}ms` : "";
+      throw new SandboxTimeoutError(`Command timed out${suffix}: ${command}`);
+    }
+    return body;
+  }
+
+  async read(path: string): Promise<string> {
+    const id = this.requireSessionId();
+    const url = new URL(`sessions/${id}/files`, this.baseUrl);
+    url.searchParams.set("path", path);
+    const res = await this.fetchImpl(url, {
+      method: "GET",
+      headers: this.headers,
+    });
+    if (res.status === 404) {
+      throw new SandboxIoError(`File not found: ${path}`);
+    }
+    if (!res.ok) {
+      throw new SandboxIoError(`Sandbox read request failed: ${res.status}`);
+    }
+    return await res.text();
+  }
+
+  async write(path: string, content: string): Promise<void> {
+    const id = this.requireSessionId();
+    const url = new URL(`sessions/${id}/files`, this.baseUrl);
+    url.searchParams.set("path", path);
+    const res = await this.fetchImpl(url, {
+      method: "PUT",
+      headers: this.headers,
+      body: content,
+    });
+    if (!res.ok) {
+      throw new SandboxIoError(`Sandbox write request failed: ${res.status}`);
+    }
+  }
+
+  async aclose(): Promise<void> {
+    if (this.sessionId === undefined) {
+      return;
+    }
+    const id = this.sessionId;
+    this.sessionId = undefined;
+    await this.fetchImpl(new URL(`sessions/${id}`, this.baseUrl), {
+      method: "DELETE",
+      headers: this.headers,
+    });
+  }
+}
+
+export interface McpSandboxRunnerToolNames {
+  readonly exec?: string;
+  readonly read?: string;
+  readonly write?: string;
+}
+
+export interface McpSandboxRunnerOptions {
+  readonly toolset: McpToolset;
+  readonly toolNames?: McpSandboxRunnerToolNames;
+}
+
+interface ResolvedToolNames {
+  readonly exec: string;
+  readonly read: string;
+  readonly write: string;
+}
+
+function parseExecResponse(content: string): SandboxExecResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new SandboxExecError(
+      `The MCP exec tool returned a non-JSON response: ${content}`,
+    );
+  }
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    typeof (parsed as { stdout?: unknown }).stdout !== "string" ||
+    typeof (parsed as { stderr?: unknown }).stderr !== "string" ||
+    typeof (parsed as { exitCode?: unknown }).exitCode !== "number"
+  ) {
+    throw new SandboxExecError(
+      `The MCP exec tool returned an unexpected shape: ${content}`,
+    );
+  }
+  return parsed as SandboxExecResult;
+}
+
+export class McpSandboxRunner implements SandboxRunner {
+  private readonly toolset: McpToolset;
+  private readonly toolNames: ResolvedToolNames;
+
+  constructor(options: McpSandboxRunnerOptions) {
+    this.toolset = options.toolset;
+    this.toolNames = {
+      exec: options.toolNames?.exec ?? "exec",
+      read: options.toolNames?.read ?? "read",
+      write: options.toolNames?.write ?? "write",
+    };
+  }
+
+  async setup(): Promise<void> {
+    // The toolset is already connected by the time it is passed in.
+  }
+
+  private async callTool(
+    name: string,
+    args: Readonly<Record<string, unknown>>,
+  ): Promise<ToolResult> {
+    return this.toolset.execute({
+      id: "sandbox-mcp-call",
+      name,
+      arguments: args,
+    });
+  }
+
+  async exec(
+    command: string,
+    options?: SandboxExecOptions,
+  ): Promise<SandboxExecResult> {
+    const result = await this.callTool(this.toolNames.exec, {
+      command,
+      ...(options?.cwd !== undefined ? { cwd: options.cwd } : {}),
+    });
+    if (result.isError === true) {
+      throw new SandboxExecError(result.content);
+    }
+    return parseExecResponse(result.content);
+  }
+
+  async read(path: string): Promise<string> {
+    const result = await this.callTool(this.toolNames.read, { path });
+    if (result.isError === true) {
+      throw new SandboxIoError(result.content);
+    }
+    return result.content;
+  }
+
+  async write(path: string, content: string): Promise<void> {
+    const result = await this.callTool(this.toolNames.write, {
+      path,
+      content,
+    });
+    if (result.isError === true) {
+      throw new SandboxIoError(result.content);
+    }
+  }
+
+  async aclose(): Promise<void> {
+    await this.toolset.close();
   }
 }
