@@ -31,7 +31,7 @@ interface OpenAiToolCall {
 }
 
 interface OpenAiMessage {
-  readonly role: "system" | "user" | "assistant" | "tool";
+  readonly role: "system" | "developer" | "user" | "assistant" | "tool";
   readonly content: string | null;
   readonly tool_calls?: readonly OpenAiToolCall[];
   readonly tool_call_id?: string;
@@ -78,6 +78,10 @@ function isRetryableStatus(status: number): boolean {
   return status === 429 || status >= 500;
 }
 
+function isReasoningModel(model: string): boolean {
+  return /^o[1-9]([-.]|$)/.test(model);
+}
+
 function toOpenAiToolCall(call: ToolCall): OpenAiToolCall {
   return {
     id: call.id,
@@ -86,10 +90,15 @@ function toOpenAiToolCall(call: ToolCall): OpenAiToolCall {
   };
 }
 
-function toOpenAiMessages(messages: readonly Message[]): OpenAiMessage[] {
+function toOpenAiMessages(
+  messages: readonly Message[],
+  model: string,
+): OpenAiMessage[] {
+  const systemRole = isReasoningModel(model) ? "developer" : "system";
   return messages.map((message): OpenAiMessage => {
     switch (message.role) {
       case "system":
+        return { role: systemRole, content: message.content };
       case "user":
         return { role: message.role, content: message.content };
       case "assistant": {
@@ -213,7 +222,7 @@ export class OpenAiProvider implements LlmProvider {
   ): Record<string, unknown> {
     return {
       model: this.model,
-      messages: toOpenAiMessages(request.messages),
+      messages: toOpenAiMessages(request.messages, this.model),
       ...(request.tools === undefined
         ? {}
         : { tools: toOpenAiTools(request.tools) }),
