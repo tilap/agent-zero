@@ -450,22 +450,26 @@ export class McpSandboxRunner implements SandboxRunner {
   private async callTool(
     name: string,
     args: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
   ): Promise<ToolResult> {
-    return this.toolset.execute({
-      id: "sandbox-mcp-call",
-      name,
-      arguments: args,
-    });
+    return this.toolset.execute(
+      { id: "sandbox-mcp-call", name, arguments: args },
+      signal === undefined ? {} : { signal },
+    );
   }
 
   async exec(
     command: string,
     options?: SandboxExecOptions,
   ): Promise<SandboxExecResult> {
-    const result = await this.callTool(this.toolNames.exec, {
-      command,
-      ...(options?.cwd !== undefined ? { cwd: options.cwd } : {}),
-    });
+    const result = await this.callTool(
+      this.toolNames.exec,
+      {
+        command,
+        ...(options?.cwd !== undefined ? { cwd: options.cwd } : {}),
+      },
+      options?.signal,
+    );
     if (result.isError === true) {
       throw new SandboxExecError(result.content);
     }

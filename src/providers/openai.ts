@@ -15,6 +15,7 @@ export interface OpenAiProviderOptions {
   readonly timeoutMs?: number;
   readonly maxRetries?: number;
   readonly retryDelayMs?: number;
+  readonly maxRetryDelayMs?: number;
   readonly headers?: Readonly<Record<string, string>>;
   readonly fetch?: typeof fetch;
 }
@@ -23,6 +24,7 @@ const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_RETRY_DELAY_MS = 250;
+const DEFAULT_MAX_RETRY_DELAY_MS = 30_000;
 
 interface OpenAiToolCall {
   readonly id: string;
@@ -80,6 +82,21 @@ function isRetryableStatus(status: number): boolean {
 
 function isReasoningModel(model: string): boolean {
   return /^o[1-9]([-.]|$)/.test(model);
+}
+
+function parseRetryAfterMs(header: string | null): number | undefined {
+  if (header === null) {
+    return undefined;
+  }
+  const trimmed = header.trim();
+  if (/^\d+$/.test(trimmed)) {
+    return Number(trimmed) * 1_000;
+  }
+  const dateMs = Date.parse(trimmed);
+  if (Number.isNaN(dateMs)) {
+    return undefined;
+  }
+  return Math.max(0, dateMs - Date.now());
 }
 
 function toOpenAiToolCall(call: ToolCall): OpenAiToolCall {
@@ -193,6 +210,7 @@ export class OpenAiProvider implements LlmProvider {
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
   private readonly retryDelayMs: number;
+  private readonly maxRetryDelayMs: number;
   private readonly extraHeaders: Readonly<Record<string, string>>;
   private readonly fetchImpl: typeof fetch;
 
@@ -204,6 +222,8 @@ export class OpenAiProvider implements LlmProvider {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+    this.maxRetryDelayMs =
+      options.maxRetryDelayMs ?? DEFAULT_MAX_RETRY_DELAY_MS;
     this.extraHeaders = options.headers ?? {};
     this.fetchImpl = options.fetch ?? fetch;
   }
@@ -292,7 +312,12 @@ export class OpenAiProvider implements LlmProvider {
           );
         }
         attempt += 1;
-        await delay(this.retryDelayMs);
+        const retryAfterMs = parseRetryAfterMs(
+          response.headers.get("retry-after"),
+        );
+        await delay(
+          Math.min(retryAfterMs ?? this.retryDelayMs, this.maxRetryDelayMs),
+        );
         continue;
       }
 

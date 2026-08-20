@@ -13,6 +13,7 @@ export interface JsonFixtureResponse {
   readonly status?: number;
   readonly body: unknown;
   readonly delayMs?: number;
+  readonly headers?: Readonly<Record<string, string>>;
 }
 
 export interface SseFixtureResponse {
@@ -100,6 +101,7 @@ export async function startOpenAiHttpFixture(
       res
         .writeHead(response.status ?? 200, {
           "content-type": "application/json",
+          ...response.headers,
         })
         .end(JSON.stringify(response.body));
       return;

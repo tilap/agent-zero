@@ -219,4 +219,36 @@ describe("Runner approval", () => {
       result: { content: "from hook" },
     });
   });
+
+  it("a synchronous approve() inside a plain for-await loop body throws UnknownApprovalRequestError", async () => {
+    // Pins a documented footgun (see docs/architecture/14-approval.md,
+    // "Driving approval"): `for await` suspends the generator exactly at
+    // the yielded tool_call event, before ApprovalRegistry.requestApproval
+    // has registered the pending id — so calling approve() synchronously
+    // inside the loop body always finds nothing pending. Not a bug in
+    // Runner/ApprovalRegistry; the correct pattern steps the generator
+    // manually (see the other tests in this file, or samples/coding).
+    const toolset = new RecordingToolset();
+    const provider = new ScriptedProvider([
+      { text: "", toolCalls: [{ id: "1", name: "noop", arguments: {} }] },
+      { text: "done" },
+    ]);
+    const runner = new Runner({
+      provider,
+      toolsets: [toolset],
+      approvalPolicy: gatedOn(["1"]),
+    });
+
+    const driveWithForAwait = async () => {
+      for await (const event of runner.run({ userMessage: "go" })) {
+        if (event.type === "tool_call" && event.call.id === "1") {
+          runner.approve(event.call.id);
+        }
+      }
+    };
+
+    await expect(driveWithForAwait()).rejects.toThrow(
+      UnknownApprovalRequestError,
+    );
+  });
 });

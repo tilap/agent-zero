@@ -86,6 +86,22 @@ describe("McpToolset", () => {
     expect(result.isError).toBe(true);
   });
 
+  it("forwards context.signal to session.callTool", async () => {
+    const session = new FakeMcpSession(
+      [{ name: "echo", description: "", inputSchema: { type: "object" } }],
+      { echo: { content: [{ type: "text", text: "hi" }] } },
+    );
+    const toolset = new McpToolset(session, { name: "demo" });
+    const controller = new AbortController();
+
+    await toolset.execute(
+      { id: "1", name: "demo__echo", arguments: {} },
+      { signal: controller.signal },
+    );
+
+    expect(session.calls[0]?.signal).toBe(controller.signal);
+  });
+
   it("a rejecting session becomes an error result through the router", async () => {
     const session = new FakeMcpSession(
       [{ name: "echo", description: "", inputSchema: { type: "object" } }],

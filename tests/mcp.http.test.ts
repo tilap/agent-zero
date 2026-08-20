@@ -28,6 +28,7 @@ describe("McpToolset.connectHttp", () => {
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       "fixture__echo",
+      "fixture__hang",
       "fixture__show_headers",
     ]);
   });
@@ -75,5 +76,24 @@ describe("McpToolset.connectHttp", () => {
     await expect(
       McpToolset.connectHttp({ name: "fixture", url: "http://127.0.0.1:1/" }),
     ).rejects.toThrow(McpConnectionError);
+  });
+
+  it("aborting an in-flight call rejects promptly instead of waiting for the response", async () => {
+    fixture = await startHttpFixture();
+    toolset = await McpToolset.connectHttp({
+      name: "fixture",
+      url: fixture.url,
+    });
+    const controller = new AbortController();
+
+    const call = toolset.execute(
+      { id: "1", name: "fixture__hang", arguments: {} },
+      { signal: controller.signal },
+    );
+    const start = Date.now();
+    controller.abort();
+
+    await expect(call).rejects.toThrow(McpConnectionError);
+    expect(Date.now() - start).toBeLessThan(1_000);
   });
 });
