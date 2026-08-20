@@ -76,6 +76,11 @@ normalized to end with `/`. Auth: `x-goog-api-key`, plus
 - `LlmRequest.tools` → `[{ functionDeclarations: [...] }]` — every
   function under one `tools[0]` entry, not one `tools[]` entry per
   function. Omitted when `tools` is `undefined`.
+- `LlmRequest.generationParams` → `generationConfig: { temperature,
+  maxOutputTokens, topP }` — Gemini's own field names, each included
+  only when its source field is set; `generationConfig` itself is
+  omitted when every field would be, same "no all-or-nothing bag" rule
+  as Phase 18's OpenAI mapping.
 
 ### Response mapping
 
@@ -103,5 +108,4 @@ a delta, same rule Phase 17/18 already have for tool calls.
   citations, grounding, multimodal parts, …).
 - No `?key=` query-param auth style — header only, matching every
   other provider here.
-- Same retry/sampling/API-key-sourcing non-goals Phase 18 already
-  declared.
+- Same retry/API-key-sourcing non-goals Phase 18 already declared.

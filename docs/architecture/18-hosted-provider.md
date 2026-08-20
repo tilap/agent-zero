@@ -67,6 +67,9 @@ different auth header).
   from `content` already, same as every other provider.
 - `LlmRequest.tools` → `{ type: "function", function: { name, description, parameters } }`
   per `ToolSchema`; omitted entirely when `tools` is `undefined`.
+- `LlmRequest.generationParams` → `temperature`/`max_tokens`/`top_p` on
+  the body, each omitted individually when its field is `undefined` —
+  not an all-or-nothing bag.
 
 ### Response mapping
 
@@ -123,8 +126,6 @@ accumulated text plus the finalized, JSON-parsed tool calls.
   `LlmRequest`/`LlmResponse`/`LlmDelta` need.
 - No exponential backoff / jitter, no `Retry-After` handling.
 - No retry once an SSE stream has started emitting content.
-- No sampling parameters (`temperature`, `max_tokens`, …) — `LlmRequest`
-  doesn't carry them.
 - No "developer"/reasoning-model role handling — works against
   mainstream chat models (`gpt-4o`, `gpt-4.1`, …), not the `o1`/`o3`
   family, which rejects a `system` message sent this way.

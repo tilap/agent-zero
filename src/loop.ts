@@ -3,7 +3,12 @@ import type { ContextCompactor } from "./context.js";
 import { clipToolResult } from "./context.js";
 import { MaxRoundsExceededError, UnsupportedOptionError } from "./errors.js";
 import type { Hooks } from "./hooks.js";
-import type { LlmProvider, LlmRequest, LlmResponse } from "./provider.js";
+import type {
+  GenerationParams,
+  LlmProvider,
+  LlmRequest,
+  LlmResponse,
+} from "./provider.js";
 import type { SteeringSource } from "./steering.js";
 import type { BaseToolset, ToolContext } from "./toolset.js";
 import { ToolsetRouter } from "./toolset.js";
@@ -18,6 +23,7 @@ export interface RunRequest {
   readonly priorMessages?: readonly Message[];
   readonly maxRounds?: number;
   readonly stream?: boolean;
+  readonly generationParams?: GenerationParams;
 }
 
 export interface RunOptions {
@@ -122,8 +128,13 @@ export class AgentLoop {
       const isLastRound = round === maxRounds;
       const tools =
         hasTools && !isLastRound ? await this.router.listTools() : undefined;
-      const llmRequest: LlmRequest =
-        tools === undefined ? { messages } : { messages, tools };
+      const llmRequest: LlmRequest = {
+        messages,
+        ...(tools === undefined ? {} : { tools }),
+        ...(request.generationParams === undefined
+          ? {}
+          : { generationParams: request.generationParams }),
+      };
 
       let response: LlmResponse;
       try {
