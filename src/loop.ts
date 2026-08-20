@@ -75,9 +75,9 @@ export class AgentLoop {
     request: RunRequest,
     options?: RunOptions,
   ): AsyncGenerator<Event, void, void> {
-    if (request.stream) {
+    if (request.stream && this.provider.chatStream === undefined) {
       throw new UnsupportedOptionError(
-        "Streaming is not supported until token streaming ships.",
+        "Streaming is not supported: the provider does not implement chatStream.",
       );
     }
 
@@ -135,7 +135,9 @@ export class AgentLoop {
           response = shortCircuit;
         } else {
           yield { type: "llm_request", messages: [...messages] };
-          response = await this.provider.chat(llmRequest);
+          response = request.stream
+            ? yield* this.streamChat(llmRequest)
+            : await this.provider.chat(llmRequest);
           const replaced =
             this.hooks?.afterModel === undefined
               ? undefined
@@ -247,5 +249,18 @@ export class AgentLoop {
     }
 
     return clipToolResult(result);
+  }
+
+  private async *streamChat(
+    request: LlmRequest,
+  ): AsyncGenerator<Event, LlmResponse, void> {
+    // biome-ignore lint/style/noNonNullAssertion: run() only takes this path when chatStream is defined
+    const stream = this.provider.chatStream!(request);
+    let step = await stream.next();
+    while (!step.done) {
+      yield { type: "llm_delta", text: step.value.text };
+      step = await stream.next();
+    }
+    return step.value;
   }
 }

@@ -38,6 +38,7 @@ export type Event =
       readonly after: number;
     }
   | { readonly type: "steering_injected"; readonly text: string }
+  | { readonly type: "llm_delta"; readonly text: string }
   | { readonly type: "cancelled" }
   | { readonly type: "error"; readonly error: Error };
 
