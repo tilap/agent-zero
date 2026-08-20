@@ -76,5 +76,6 @@ export interface ToolContext {
 
 ## Non-goals
 
-Parallel tool execution and steering. `Runner` is not exported; the
-façade is the only public surface.
+Parallel tool execution and steering. `Runner` is exported (Phase 12)
+for callers that need a live handle on a run in progress; `Agent`
+stays the façade for callers that only need `run`/`runSync`.

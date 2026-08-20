@@ -17,3 +17,4 @@ Do not read the whole `docs/` tree.
 | [architecture/09-hooks.md](architecture/09-hooks.md) | How do `beforeModel`/`afterModel`/`beforeTool`/`afterTool` hooks work? |
 | [architecture/10-history.md](architecture/10-history.md) | How does `priorMessages` compose? How does `ContextCompactor` work? What happens to an oversized tool result? |
 | [architecture/11-parallel-tools.md](architecture/11-parallel-tools.md) | How do several tool calls in one turn run? What happens if one hook throws while others are in flight? |
+| [architecture/12-public-runner.md](architecture/12-public-runner.md) | How is `Runner` different from `Agent`? When would I use it directly? |
