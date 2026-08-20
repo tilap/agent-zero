@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { HostedProviderError } from "../src/errors.js";
 import { AgentLoop } from "../src/loop.js";
+import type { LlmDelta, LlmResponse } from "../src/provider.js";
 import { GeminiProvider } from "../src/providers/gemini.js";
 import type { Event } from "../src/types.js";
 import {
@@ -30,9 +31,9 @@ const textCandidate = (text: string) => ({
 
 describe("GeminiProvider chat", () => {
   it("maps a text response", async () => {
-    const fixture = await startGeminiHttpFixture(
-      [textCandidate("hello")].map(jsonResponse),
-    );
+    const fixture = await startGeminiHttpFixture([
+      jsonResponse(textCandidate("hello")),
+    ]);
     try {
       const provider = new GeminiProvider({
         apiKey: "ai-test",
@@ -319,9 +320,9 @@ describe("GeminiProvider chat", () => {
 
 describe("GeminiProvider chatStream", () => {
   async function drainStream(
-    stream: AsyncGenerator<{ text: string }, unknown, void>,
+    stream: AsyncGenerator<LlmDelta, LlmResponse, void>,
   ) {
-    const deltas: { text: string }[] = [];
+    const deltas: LlmDelta[] = [];
     let step = await stream.next();
     while (!step.done) {
       deltas.push(step.value);
