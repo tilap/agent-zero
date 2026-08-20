@@ -42,6 +42,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   not implement `chatStream`, instead of unconditionally. Tool calls
   are never streamed — they still arrive whole on the round's final
   response.
+- `OpenAiProvider`, `HostedProviderError`: an `LlmProvider` over
+  OpenAI's chat completions HTTP API (hand-rolled `fetch`, no SDK
+  dependency), including `chatStream`. A small retry budget on
+  `429`/`5xx` and connection failures/timeout, a fixed delay between
+  attempts, no retry once a streamed response has started emitting
+  content.
 - `SkillRegistry`, `SkillToolset`, and `parseSkill`: discover `SKILL.md`
   files, expose their catalog to a model, and load a skill's body or
   resource files on demand. Callers pass `registry.prelude()` as the

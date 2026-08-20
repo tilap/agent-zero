@@ -13,6 +13,7 @@ export { MAX_TOOL_RESULT_CHARS, TruncatingCompactor } from "./context.js";
 export {
   DuplicateToolNameError,
   InvalidTranscriptError,
+  HostedProviderError,
   MaxRoundsExceededError,
   NoActiveRunError,
   ScriptExhaustedError,
@@ -81,6 +82,8 @@ export type {
   LlmRequest,
   LlmResponse,
 } from "./provider.js";
+export type { OpenAiProviderOptions } from "./providers/openai.js";
+export { OpenAiProvider } from "./providers/openai.js";
 export type { ScriptedTurn } from "./providers/scripted.js";
 export { ScriptedProvider } from "./providers/scripted.js";
 export type { SteeringSource } from "./steering.js";
