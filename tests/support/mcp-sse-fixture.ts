@@ -96,6 +96,11 @@ export async function startSseFixture(): Promise<SseFixtureHandle> {
                   required: ["text"],
                 },
               },
+              {
+                name: "hang",
+                description: "Never respond — used to test call cancellation.",
+                inputSchema: { type: "object", properties: {} },
+              },
             ],
           },
         });
@@ -112,6 +117,9 @@ export async function startSseFixture(): Promise<SseFixtureHandle> {
             id: message.id,
             result: textResult(String(args.text ?? "")),
           });
+          return;
+        }
+        if (name === "hang") {
           return;
         }
         sendMessage({

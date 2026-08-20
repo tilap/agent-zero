@@ -178,6 +178,68 @@ describe("OpenAiProvider chat", () => {
     }
   });
 
+  it.each(["o1", "o1-mini", "o3", "o3-mini"])(
+    'remaps the system message to role "developer" for reasoning model %s',
+    async (model) => {
+      const fixture = await startOpenAiHttpFixture([
+        jsonResponse(textChoice("ok")),
+      ]);
+      try {
+        const provider = new OpenAiProvider({
+          apiKey: "sk-test",
+          model,
+          baseUrl: fixture.url,
+        });
+        await provider.chat({
+          messages: [
+            { role: "system", content: "be terse" },
+            { role: "user", content: "hi" },
+          ],
+        });
+        expect(fixture.requests[0]?.body).toEqual({
+          model,
+          messages: [
+            { role: "developer", content: "be terse" },
+            { role: "user", content: "hi" },
+          ],
+        });
+      } finally {
+        await fixture.close();
+      }
+    },
+  );
+
+  it.each(["gpt-4o", "gpt-4.1", "gpt-3.5-turbo"])(
+    'keeps the system message as role "system" for mainstream model %s',
+    async (model) => {
+      const fixture = await startOpenAiHttpFixture([
+        jsonResponse(textChoice("ok")),
+      ]);
+      try {
+        const provider = new OpenAiProvider({
+          apiKey: "sk-test",
+          model,
+          baseUrl: fixture.url,
+        });
+        await provider.chat({
+          messages: [
+            { role: "system", content: "be terse" },
+            { role: "user", content: "hi" },
+          ],
+        });
+        expect(fixture.requests[0]?.body).toEqual({
+          model,
+          messages: [
+            { role: "system", content: "be terse" },
+            { role: "user", content: "hi" },
+          ],
+        });
+      } finally {
+        await fixture.close();
+      }
+    },
+  );
+
   it("maps request.tools, omitting the field entirely when absent", async () => {
     const fixture = await startOpenAiHttpFixture([
       jsonResponse(textChoice("ok")),
@@ -278,6 +340,126 @@ describe("OpenAiProvider chat", () => {
         provider.chat({ messages: [{ role: "user", content: "hi" }] }),
       ).rejects.toThrow(HostedProviderError);
       expect(fixture.requests).toHaveLength(3);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("waits for a Retry-After delta-seconds value before retrying", async () => {
+    const fixture = await startOpenAiHttpFixture([
+      {
+        type: "json",
+        status: 429,
+        body: { error: { message: "rate limited" } },
+        headers: { "retry-after": "1" },
+      },
+      jsonResponse(textChoice("recovered")),
+    ]);
+    try {
+      const provider = new OpenAiProvider({
+        apiKey: "sk-test",
+        model: "gpt-4o",
+        baseUrl: fixture.url,
+        retryDelayMs: 1,
+      });
+      const start = Date.now();
+      const response = await provider.chat({
+        messages: [{ role: "user", content: "hi" }],
+      });
+      const elapsedMs = Date.now() - start;
+      expect(response.text).toBe("recovered");
+      expect(elapsedMs).toBeGreaterThanOrEqual(950);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("waits for a Retry-After HTTP-date value before retrying", async () => {
+    // toUTCString() truncates to whole seconds, so a 2s horizon keeps the
+    // asserted floor safely below the worst-case ~1s rounding loss.
+    const retryAt = new Date(Date.now() + 2_000);
+    const fixture = await startOpenAiHttpFixture([
+      {
+        type: "json",
+        status: 429,
+        body: { error: { message: "rate limited" } },
+        headers: { "retry-after": retryAt.toUTCString() },
+      },
+      jsonResponse(textChoice("recovered")),
+    ]);
+    try {
+      const provider = new OpenAiProvider({
+        apiKey: "sk-test",
+        model: "gpt-4o",
+        baseUrl: fixture.url,
+        retryDelayMs: 1,
+      });
+      const start = Date.now();
+      const response = await provider.chat({
+        messages: [{ role: "user", content: "hi" }],
+      });
+      const elapsedMs = Date.now() - start;
+      expect(response.text).toBe("recovered");
+      expect(elapsedMs).toBeGreaterThanOrEqual(900);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("clamps a Retry-After value that exceeds maxRetryDelayMs", async () => {
+    const fixture = await startOpenAiHttpFixture([
+      {
+        type: "json",
+        status: 429,
+        body: { error: { message: "rate limited" } },
+        headers: { "retry-after": "3600" },
+      },
+      jsonResponse(textChoice("recovered")),
+    ]);
+    try {
+      const provider = new OpenAiProvider({
+        apiKey: "sk-test",
+        model: "gpt-4o",
+        baseUrl: fixture.url,
+        retryDelayMs: 1,
+        maxRetryDelayMs: 50,
+      });
+      const start = Date.now();
+      const response = await provider.chat({
+        messages: [{ role: "user", content: "hi" }],
+      });
+      const elapsedMs = Date.now() - start;
+      expect(response.text).toBe("recovered");
+      expect(elapsedMs).toBeLessThan(3_000);
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("falls back to retryDelayMs when Retry-After is absent or invalid", async () => {
+    const fixture = await startOpenAiHttpFixture([
+      {
+        type: "json",
+        status: 429,
+        body: { error: { message: "rate limited" } },
+        headers: { "retry-after": "not-a-valid-value" },
+      },
+      jsonResponse(textChoice("recovered")),
+    ]);
+    try {
+      const provider = new OpenAiProvider({
+        apiKey: "sk-test",
+        model: "gpt-4o",
+        baseUrl: fixture.url,
+        retryDelayMs: 1,
+      });
+      const start = Date.now();
+      const response = await provider.chat({
+        messages: [{ role: "user", content: "hi" }],
+      });
+      const elapsedMs = Date.now() - start;
+      expect(response.text).toBe("recovered");
+      expect(elapsedMs).toBeLessThan(500);
     } finally {
       await fixture.close();
     }

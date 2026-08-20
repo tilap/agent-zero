@@ -63,6 +63,11 @@ rl.on("line", (line) => {
             description: "Return the TOKEN environment variable this process saw.",
             inputSchema: { type: "object", properties: {} },
           },
+          {
+            name: "hang",
+            description: "Never respond — used to test call cancellation.",
+            inputSchema: { type: "object", properties: {} },
+          },
         ],
       },
     });
@@ -85,6 +90,9 @@ rl.on("line", (line) => {
         id: message.id,
         result: textResult(process.env.TOKEN ?? ""),
       });
+      return;
+    }
+    if (name === "hang") {
       return;
     }
     send({

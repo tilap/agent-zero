@@ -25,6 +25,7 @@ export interface OpenAiProviderOptions {
   readonly timeoutMs?: number; // default 30_000
   readonly maxRetries?: number; // default 2 (up to 3 attempts total)
   readonly retryDelayMs?: number; // default 250
+  readonly maxRetryDelayMs?: number; // default 30_000, caps a Retry-After wait
   readonly headers?: Readonly<Record<string, string>>;
   readonly fetch?: typeof fetch;
 }
@@ -57,7 +58,12 @@ different auth header).
 
 ### Request mapping
 
-- `system` / `user` → `{ role, content }`.
+- `system` → `{ role: "system", content }`, except for an `o1`/`o3`-family
+  model (`isReasoningModel`, matched by name prefix), which sends
+  `{ role: "developer", content }` instead — those models reject a
+  literal `system` role. The check depends only on `OpenAiProviderOptions.model`,
+  not on `LlmRequest`; every other mapping rule is unaffected.
+- `user` → `{ role, content }`.
 - `assistant` → `{ role: "assistant", content, tool_calls? }`; when
   `toolCalls` is present and `content === ""`, `content` is sent as
   `null` (OpenAI's documented shape for a tool-calls-only turn).
@@ -85,8 +91,12 @@ One private `fetchWithRetry` wraps every request. Each attempt gets
 its own `AbortController` timing out after `timeoutMs`.
 
 - **Retryable**: `fetch` throwing/timing out, or status `429`/`>= 500`.
-  Up to `maxRetries` retries, `retryDelayMs` between attempts — a
-  small fixed delay, no backoff curve, no `Retry-After` handling.
+  Up to `maxRetries` retries. The wait between attempts is the
+  response's `Retry-After` header when present (delta-seconds or
+  HTTP-date form, both parsed), otherwise `retryDelayMs` — either way
+  capped at `maxRetryDelayMs` so a large server-requested wait can't
+  stall the caller indefinitely. No backoff curve otherwise: a
+  `Retry-After`-less 429/5xx still just waits `retryDelayMs`.
 - **Not retryable**: any other non-2xx status (e.g. `400`, `401`) —
   fails immediately, budget untouched.
 - Failure throws `HostedProviderError` with the status and, when the
@@ -124,11 +134,9 @@ accumulated text plus the finalized, JSON-parsed tool calls.
 - Not full OpenAI API coverage (`n`, `logprobs`, vision content,
   `parallel_tool_calls`, structured outputs, …) — only what
   `LlmRequest`/`LlmResponse`/`LlmDelta` need.
-- No exponential backoff / jitter, no `Retry-After` handling.
+- No exponential backoff / jitter beyond honouring `Retry-After` when
+  the server sends one.
 - No retry once an SSE stream has started emitting content.
-- No "developer"/reasoning-model role handling — works against
-  mainstream chat models (`gpt-4o`, `gpt-4.1`, …), not the `o1`/`o3`
-  family, which rejects a `system` message sent this way.
 - No API-key/env-var convention — `apiKey` is a required constructor
   option, sourcing it is the caller's job.
 - No change to `Loop`/`Agent`/`Runner`/`provider.ts`.
