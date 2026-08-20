@@ -17,7 +17,7 @@ export interface RunRequest {
   readonly userMessage: string;
   readonly systemPrompt?: string;
   readonly maxRounds?: number; // accepted, defaulted; enforcement is Phase 4
-  readonly stream?: boolean; // rejected until Phase 16
+  readonly stream?: boolean; // rejected until Phase 17
 }
 
 export class AgentLoop {
