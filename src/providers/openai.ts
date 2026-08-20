@@ -64,7 +64,7 @@ interface OpenAiStreamToolCallFragment {
 interface OpenAiStreamChunk {
   readonly choices?: readonly {
     readonly delta?: {
-      readonly content?: string;
+      readonly content?: string | null;
       readonly tool_calls?: readonly OpenAiStreamToolCallFragment[];
     };
   }[];
@@ -348,7 +348,11 @@ export class OpenAiProvider implements LlmProvider {
       if (delta === undefined) {
         continue;
       }
-      if (delta.content !== undefined && delta.content !== "") {
+      if (
+        delta.content !== undefined &&
+        delta.content !== null &&
+        delta.content !== ""
+      ) {
         text += delta.content;
         yield { text: delta.content };
       }

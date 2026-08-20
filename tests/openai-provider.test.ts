@@ -317,6 +317,39 @@ describe("OpenAiProvider chatStream", () => {
     }
   });
 
+  it("ignores an explicit content: null delta instead of yielding or crashing", async () => {
+    // Real OpenAI responses sometimes send an explicit `"content": null`
+    // delta (not just an absent field) — e.g. alongside role-only or
+    // finish-reason chunks. Caught against the real API: an earlier version
+    // only checked `!== undefined`, so `null` slipped through and got
+    // concatenated into the text (`text += null` coerces to the string
+    // "null") and yielded as a delta with a null `text` field.
+    const fixture = await startOpenAiHttpFixture([
+      sseResponse([
+        JSON.stringify({
+          choices: [{ delta: { role: "assistant", content: null } }],
+        }),
+        JSON.stringify({ choices: [{ delta: { content: "hi" } }] }),
+        JSON.stringify({ choices: [{ delta: {}, finish_reason: "stop" }] }),
+        "[DONE]",
+      ]),
+    ]);
+    try {
+      const provider = new OpenAiProvider({
+        apiKey: "sk-test",
+        model: "gpt-4o",
+        baseUrl: fixture.url,
+      });
+      const { deltas, response } = await drainStream(
+        provider.chatStream({ messages: [{ role: "user", content: "hi" }] }),
+      );
+      expect(deltas).toEqual([{ text: "hi" }]);
+      expect(response).toEqual({ text: "hi" });
+    } finally {
+      await fixture.close();
+    }
+  });
+
   it("assembles a tool call fragmented across chunks, id/name only on the first", async () => {
     const fixture = await startOpenAiHttpFixture([
       sseResponse([
