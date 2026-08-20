@@ -5,7 +5,7 @@ import type { Hooks } from "./hooks.js";
 import type { LlmProvider, LlmRequest, LlmResponse } from "./provider.js";
 import type { BaseToolset, ToolContext } from "./toolset.js";
 import { ToolsetRouter } from "./toolset.js";
-import type { Event, Message, ToolResult } from "./types.js";
+import type { Event, Message, ToolCall, ToolResult } from "./types.js";
 import { validateMessages } from "./types.js";
 
 const DEFAULT_MAX_ROUNDS = 10;
@@ -161,48 +161,67 @@ export class AgentLoop {
         toolCalls,
       });
 
+      if (signal?.aborted) {
+        yield { type: "cancelled" };
+        return;
+      }
+
       const toolContext: ToolContext = {
         ...(signal === undefined ? {} : { signal }),
         ...(workspace === undefined ? {} : { workspace }),
       };
       for (const call of toolCalls) {
-        if (signal?.aborted) {
-          yield { type: "cancelled" };
-          return;
-        }
         yield { type: "tool_call", call };
+      }
 
-        let result: ToolResult;
-        try {
-          const shortCircuit =
-            this.hooks?.beforeTool === undefined
-              ? undefined
-              : await this.hooks.beforeTool({ call });
-          if (shortCircuit !== undefined) {
-            result = shortCircuit;
-          } else {
-            result = await this.router.execute(call, toolContext);
-            const replaced =
-              this.hooks?.afterTool === undefined
-                ? undefined
-                : await this.hooks.afterTool({ call, result });
-            if (replaced !== undefined) {
-              result = replaced;
-            }
-          }
-        } catch (error) {
-          yield { type: "error", error: toError(error) };
-          return;
-        }
+      const settled = await Promise.allSettled(
+        toolCalls.map((call) => this.runToolCall(call, toolContext)),
+      );
 
-        result = clipToolResult(result);
-        yield { type: "tool_result", result };
-        messages.push(toToolMessage(result));
-        if (signal?.aborted) {
-          yield { type: "cancelled" };
+      for (const outcome of settled) {
+        if (outcome.status === "rejected") {
+          yield { type: "error", error: toError(outcome.reason) };
           return;
         }
       }
+
+      for (const outcome of settled) {
+        if (outcome.status === "fulfilled") {
+          yield { type: "tool_result", result: outcome.value };
+          messages.push(toToolMessage(outcome.value));
+        }
+      }
+
+      if (signal?.aborted) {
+        yield { type: "cancelled" };
+        return;
+      }
     }
+  }
+
+  private async runToolCall(
+    call: ToolCall,
+    context: ToolContext,
+  ): Promise<ToolResult> {
+    const shortCircuit =
+      this.hooks?.beforeTool === undefined
+        ? undefined
+        : await this.hooks.beforeTool({ call });
+
+    let result: ToolResult;
+    if (shortCircuit !== undefined) {
+      result = shortCircuit;
+    } else {
+      result = await this.router.execute(call, context);
+      const replaced =
+        this.hooks?.afterTool === undefined
+          ? undefined
+          : await this.hooks.afterTool({ call, result });
+      if (replaced !== undefined) {
+        result = replaced;
+      }
+    }
+
+    return clipToolResult(result);
   }
 }
