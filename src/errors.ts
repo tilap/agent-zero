@@ -9,3 +9,5 @@ export class DuplicateToolNameError extends Error {}
 export class MaxRoundsExceededError extends Error {}
 
 export class NoActiveRunError extends Error {}
+
+export class UnknownApprovalRequestError extends Error {}

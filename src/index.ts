@@ -1,6 +1,11 @@
 export type { AgentOptions, RunResult, StopReason } from "./agent.js";
 export { Agent } from "./agent.js";
 export type {
+  ApprovalDecision,
+  ApprovalGate,
+  ApprovalPolicy,
+} from "./approval.js";
+export type {
   ContextCompactor,
   TruncatingCompactorOptions,
 } from "./context.js";
@@ -11,6 +16,7 @@ export {
   MaxRoundsExceededError,
   NoActiveRunError,
   ScriptExhaustedError,
+  UnknownApprovalRequestError,
   UnsupportedOptionError,
 } from "./errors.js";
 export type {

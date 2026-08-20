@@ -140,6 +140,7 @@ describe("Runner approval", () => {
       result: { callId: "2" },
     });
 
+    await exhaust(gen);
     expect(toolset.calls.map((call) => call.id).sort()).toEqual(["1", "2"]);
     const secondRequest = provider.requests[1];
     const toolMessages = secondRequest?.messages.filter(
