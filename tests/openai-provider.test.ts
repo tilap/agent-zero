@@ -134,6 +134,68 @@ describe("OpenAiProvider chat", () => {
     }
   });
 
+  it.each(["o1", "o1-mini", "o3", "o3-mini"])(
+    'remaps the system message to role "developer" for reasoning model %s',
+    async (model) => {
+      const fixture = await startOpenAiHttpFixture([
+        jsonResponse(textChoice("ok")),
+      ]);
+      try {
+        const provider = new OpenAiProvider({
+          apiKey: "sk-test",
+          model,
+          baseUrl: fixture.url,
+        });
+        await provider.chat({
+          messages: [
+            { role: "system", content: "be terse" },
+            { role: "user", content: "hi" },
+          ],
+        });
+        expect(fixture.requests[0]?.body).toEqual({
+          model,
+          messages: [
+            { role: "developer", content: "be terse" },
+            { role: "user", content: "hi" },
+          ],
+        });
+      } finally {
+        await fixture.close();
+      }
+    },
+  );
+
+  it.each(["gpt-4o", "gpt-4.1", "gpt-3.5-turbo"])(
+    'keeps the system message as role "system" for mainstream model %s',
+    async (model) => {
+      const fixture = await startOpenAiHttpFixture([
+        jsonResponse(textChoice("ok")),
+      ]);
+      try {
+        const provider = new OpenAiProvider({
+          apiKey: "sk-test",
+          model,
+          baseUrl: fixture.url,
+        });
+        await provider.chat({
+          messages: [
+            { role: "system", content: "be terse" },
+            { role: "user", content: "hi" },
+          ],
+        });
+        expect(fixture.requests[0]?.body).toEqual({
+          model,
+          messages: [
+            { role: "system", content: "be terse" },
+            { role: "user", content: "hi" },
+          ],
+        });
+      } finally {
+        await fixture.close();
+      }
+    },
+  );
+
   it("maps request.tools, omitting the field entirely when absent", async () => {
     const fixture = await startOpenAiHttpFixture([
       jsonResponse(textChoice("ok")),

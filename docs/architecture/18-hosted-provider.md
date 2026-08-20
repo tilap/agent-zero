@@ -58,7 +58,12 @@ different auth header).
 
 ### Request mapping
 
-- `system` / `user` → `{ role, content }`.
+- `system` → `{ role: "system", content }`, except for an `o1`/`o3`-family
+  model (`isReasoningModel`, matched by name prefix), which sends
+  `{ role: "developer", content }` instead — those models reject a
+  literal `system` role. The check depends only on `OpenAiProviderOptions.model`,
+  not on `LlmRequest`; every other mapping rule is unaffected.
+- `user` → `{ role, content }`.
 - `assistant` → `{ role: "assistant", content, tool_calls? }`; when
   `toolCalls` is present and `content === ""`, `content` is sent as
   `null` (OpenAI's documented shape for a tool-calls-only turn).
@@ -131,9 +136,6 @@ accumulated text plus the finalized, JSON-parsed tool calls.
 - No retry once an SSE stream has started emitting content.
 - No sampling parameters (`temperature`, `max_tokens`, …) — `LlmRequest`
   doesn't carry them.
-- No "developer"/reasoning-model role handling — works against
-  mainstream chat models (`gpt-4o`, `gpt-4.1`, …), not the `o1`/`o3`
-  family, which rejects a `system` message sent this way.
 - No API-key/env-var convention — `apiKey` is a required constructor
   option, sourcing it is the caller's job.
 - No change to `Loop`/`Agent`/`Runner`/`provider.ts`.
