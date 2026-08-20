@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `Runner`, `RunnerOptions`, `RunnerRunOptions`: exported from the
+  package entry point. `Runner` already backed `Agent` internally; a
+  caller can now construct and hold one directly to get a live handle
+  on a run in progress.
 - `SkillRegistry`, `SkillToolset`, and `parseSkill`: discover `SKILL.md`
   files, expose their catalog to a model, and load a skill's body or
   resource files on demand. Callers pass `registry.prelude()` as the

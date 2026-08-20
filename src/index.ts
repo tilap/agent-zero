@@ -54,4 +54,9 @@ export { ScriptedProvider } from "./providers/scripted.js";
 export type { ToolContext, ToolSchema } from "./toolset.js";
 export { BaseToolset, ToolsetRouter } from "./toolset.js";
 export type { Event, Message, ToolCall, ToolResult } from "./types.js";
-export type { WorkspaceOptions } from "./runner.js";
+export type {
+  RunnerOptions,
+  RunnerRunOptions,
+  WorkspaceOptions,
+} from "./runner.js";
+export { Runner } from "./runner.js";
