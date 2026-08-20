@@ -221,7 +221,7 @@ describe("Runner approval", () => {
   });
 
   it("a synchronous approve() inside a plain for-await loop body throws UnknownApprovalRequestError", async () => {
-    // Pins a documented footgun (see docs/architecture/14-approval.md,
+    // Pins a documented footgun (see docs/worklog/14-approval.md,
     // "Driving approval"): `for await` suspends the generator exactly at
     // the yielded tool_call event, before ApprovalRegistry.requestApproval
     // has registered the pending id — so calling approve() synchronously

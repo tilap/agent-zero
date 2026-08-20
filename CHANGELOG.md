@@ -28,7 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (ephemeral by default, or an explicit path kept after the run,
   mirroring `WorkspaceOptions`) and rejects any path that would escape
   it. Not a security boundary around `exec` itself — see
-  `docs/architecture/15-sandbox-local.md`.
+  `docs/worklog/15-sandbox-local.md`.
 - `RemoteSandboxRunner` and `McpSandboxRunner`: two more
   `SandboxRunner` implementations behind the same protocol —
   `RemoteSandboxRunner` over a small HTTP contract this repo defines
@@ -79,6 +79,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A fixed cap (`MAX_TOOL_RESULT_CHARS`) on tool result content, applied
   unconditionally so one oversized tool result cannot blow up the next
   round's request.
+- MIT license (`LICENSE`, `package.json#license`).
 
 ### Changed
 
