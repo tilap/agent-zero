@@ -47,6 +47,27 @@ describe("Runner", () => {
     expect(events.at(-1)).toEqual({ type: "final_text", text: "hi" });
   });
 
+  it("applies RunnerOptions.generationParams as a default", async () => {
+    const provider = new ScriptedProvider([{ text: "hi" }]);
+    const defaultParams = { temperature: 0.5 };
+    const runner = new Runner({ provider, generationParams: defaultParams });
+    await collect(runner.run({ userMessage: "hi" }));
+    expect(provider.requests[0]?.generationParams).toEqual(defaultParams);
+  });
+
+  it("a per-request generationParams overrides the runner default", async () => {
+    const provider = new ScriptedProvider([{ text: "hi" }]);
+    const runner = new Runner({
+      provider,
+      generationParams: { temperature: 0.5 },
+    });
+    const perRequest = { temperature: 0.9 };
+    await collect(
+      runner.run({ userMessage: "hi", generationParams: perRequest }),
+    );
+    expect(provider.requests[0]?.generationParams).toEqual(perRequest);
+  });
+
   it("is importable from the package entry point", async () => {
     const entryPoint: Record<string, unknown> = await import("../src/index.js");
     expect(entryPoint.Runner).toBe(Runner);

@@ -78,6 +78,14 @@ describe("Agent", () => {
     expect(result.error).toBeInstanceOf(MaxRoundsExceededError);
   });
 
+  it("forwards AgentOptions.generationParams as a run default", async () => {
+    const provider = new ScriptedProvider([{ text: "hi" }]);
+    const generationParams = { temperature: 0.3, topP: 0.9 };
+    const agent = new Agent({ provider, generationParams });
+    await agent.runSync("hi");
+    expect(provider.requests[0]?.generationParams).toEqual(generationParams);
+  });
+
   it("exports Runner from the public entry point alongside Agent", async () => {
     const entryPoint: Record<string, unknown> = await import("../src/index.js");
     expect("Runner" in entryPoint).toBe(true);

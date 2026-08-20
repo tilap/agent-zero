@@ -134,6 +134,50 @@ describe("OpenAiProvider chat", () => {
     }
   });
 
+  it("maps request.generationParams to temperature/max_tokens/top_p", async () => {
+    const fixture = await startOpenAiHttpFixture([
+      jsonResponse(textChoice("ok")),
+    ]);
+    try {
+      const provider = new OpenAiProvider({
+        apiKey: "sk-test",
+        model: "gpt-4o",
+        baseUrl: fixture.url,
+      });
+      await provider.chat({
+        messages: [{ role: "user", content: "hi" }],
+        generationParams: { temperature: 0.2, maxTokens: 64, topP: 0.9 },
+      });
+      expect(fixture.requests[0]?.body).toMatchObject({
+        temperature: 0.2,
+        max_tokens: 64,
+        top_p: 0.9,
+      });
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("omits generation params from the body entirely when absent", async () => {
+    const fixture = await startOpenAiHttpFixture([
+      jsonResponse(textChoice("ok")),
+    ]);
+    try {
+      const provider = new OpenAiProvider({
+        apiKey: "sk-test",
+        model: "gpt-4o",
+        baseUrl: fixture.url,
+      });
+      await provider.chat({ messages: [{ role: "user", content: "hi" }] });
+      const body = fixture.requests[0]?.body as Record<string, unknown>;
+      expect("temperature" in body).toBe(false);
+      expect("max_tokens" in body).toBe(false);
+      expect("top_p" in body).toBe(false);
+    } finally {
+      await fixture.close();
+    }
+  });
+
   it("maps request.tools, omitting the field entirely when absent", async () => {
     const fixture = await startOpenAiHttpFixture([
       jsonResponse(textChoice("ok")),
