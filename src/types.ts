@@ -37,6 +37,7 @@ export type Event =
       readonly before: number;
       readonly after: number;
     }
+  | { readonly type: "steering_injected"; readonly text: string }
   | { readonly type: "cancelled" }
   | { readonly type: "error"; readonly error: Error };
 
