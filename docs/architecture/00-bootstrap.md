@@ -39,8 +39,12 @@ in the PR that adds them.
 
 - `pre-commit` runs Biome on staged files. A formatting or lint violation
   blocks the commit.
-- `pre-push` runs `tsc --noEmit` then the test suite. A type error or a
-  failing test blocks the push.
+- `pre-push` builds (`tsc -p tsconfig.build.json`), then runs `tsc --noEmit`,
+  then the test suite. The build step exists because the sample tests
+  under `tests/samples.*.test.ts` (Phase 20) import `dist/` directly —
+  the same way a real consumer of the published package would — so
+  `dist/` has to be fresh before those tests can pass. A type error, a
+  build failure, or a failing test blocks the push.
 
 Bypassing either with `--no-verify` is a choice you own, not a workaround
 the repo endorses — use it only when you understand exactly what you are

@@ -25,3 +25,4 @@ Do not read the whole `docs/` tree.
 | [architecture/17-token-streaming.md](architecture/17-token-streaming.md) | How do I stream a response? What happens to tool calls when streaming is on? |
 | [architecture/18-hosted-provider.md](architecture/18-hosted-provider.md) | How do I use a real OpenAI-shaped model? What happens on a flaky request or a rate limit? |
 | [architecture/19-second-hosted-provider.md](architecture/19-second-hosted-provider.md) | How does Gemini's wire shape differ from OpenAI's? How are tool calls without ids handled? |
+| [architecture/20-samples.md](architecture/20-samples.md) | What runnable examples ship with this kit? Why does `pnpm run build` matter for the test suite now? |
