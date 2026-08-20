@@ -70,13 +70,14 @@ connected. `setup()` is a no-op (the toolset is already connected by
 the time it is passed in). `aclose()` calls the toolset's own public
 `close()` (which closes its underlying session). Every
 `SandboxRunner` method calls `toolset.execute({ id, name:
-toolNames.<x>, arguments })` — i.e. goes through `McpToolset`'s
-already-public `execute`, never a new session API; nothing under
-`src/modules/mcp/` changes. `McpToolset.execute` takes no
-`ToolContext`, so `SandboxExecOptions.signal` is accepted by
-`McpSandboxRunner.exec` for interface conformance but has nothing to
-forward to — cancelling an in-flight MCP tool call is not something
-this phase adds.
+toolNames.<x>, arguments }, context)` — i.e. goes through
+`McpToolset`'s already-public `execute`, never a new session API;
+nothing under `src/modules/mcp/` changes beyond `execute` accepting a
+`ToolContext`. `exec` forwards `SandboxExecOptions.signal` as
+`context.signal`, so aborting an in-flight `exec` call now cancels the
+underlying MCP tool call the same way it cancels `LocalDirRunner`'s
+child process — see `docs/architecture/07-mcp.md` for how each
+transport implements that.
 
 - `exec`: the remote tool's text content must be a JSON string shaped
   `{ stdout, stderr, exitCode }`. A parse failure, or `result.isError`

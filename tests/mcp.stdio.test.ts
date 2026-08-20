@@ -29,6 +29,7 @@ describe("McpToolset.connectStdio", () => {
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       "fixture__echo",
+      "fixture__hang",
       "fixture__show_env",
     ]);
   });
@@ -85,6 +86,23 @@ describe("McpToolset.connectStdio", () => {
         env: { TOKEN: "${MCP_DEFINITELY_UNSET_VAR}" },
       }),
     ).rejects.toThrow(McpConfigError);
+  });
+
+  it("aborting an in-flight call rejects promptly instead of waiting forever", async () => {
+    toolset = await McpToolset.connectStdio({
+      name: "fixture",
+      command: process.execPath,
+      args: [FIXTURE],
+    });
+    const controller = new AbortController();
+
+    const call = toolset.execute(
+      { id: "1", name: "fixture__hang", arguments: {} },
+      { signal: controller.signal },
+    );
+    controller.abort();
+
+    await expect(call).rejects.toThrow(McpConnectionError);
   });
 
   it("close() ends the process; a later call rejects", async () => {
