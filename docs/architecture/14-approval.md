@@ -106,6 +106,55 @@ the handle). A run is active but `callId` matches nothing currently
 pending (wrong id, already decided, or that call never required
 approval) → `UnknownApprovalRequestError`.
 
+**Driving approval.** The most idiomatic way to consume an async
+generator in JS — a plain `for await` loop — does not compose with
+calling `approve()`/`deny()` synchronously inside the loop body:
+
+```js
+// Throws UnknownApprovalRequestError — every time, not intermittently.
+for await (const event of runner.run({ userMessage })) {
+  if (event.type === "tool_call" && gated(event.call.name)) {
+    runner.approve(event.call.id); // too early, always
+  }
+}
+```
+
+`for await` awaits `.next()` as part of its own protocol. When the
+loop body receives a yielded `tool_call` event, the underlying
+generator is suspended *exactly* at that `yield` — it has not yet
+resumed far enough to reach `ApprovalRegistry.requestApproval()`,
+which is what registers the pending id (see Behaviour, above). That
+registration only happens once the generator resumes, i.e. once
+`.next()` is called *again* — which a `for await` body cannot do
+mid-iteration. There is no timing that makes this work; it is not a
+race to fix by retrying.
+
+The correct pattern steps the generator manually instead of using
+`for await`, so `approve()`/`deny()` runs after the resumed generator
+has registered the pending id but before its promise is awaited:
+
+```js
+const gen = runner.run({ userMessage });
+let step = await gen.next();
+while (!step.done) {
+  const event = step.value;
+  if (event.type === "tool_call" && gated(event.call.name)) {
+    const pending = gen.next(); // resumes synchronously up to registration, then suspends
+    runner.approve(event.call.id); // now matches a registered entry
+    step = await pending;
+    continue;
+  }
+  step = await gen.next();
+}
+```
+
+Calling `gen.next()` without awaiting it first resumes the
+generator's synchronous prefix immediately — including the
+`this.pending.set(call.id, resolve)` inside `requestApproval`'s
+promise executor, which runs synchronously before the `await` in that
+expression actually suspends anything. `tests/approval.test.ts` and
+`samples/coding/run.mjs` both use exactly this pattern.
+
 ## Non-goals
 
 - No new `Event` variant — `tool_call` is enough (see above).
