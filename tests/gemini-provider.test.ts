@@ -83,6 +83,73 @@ describe("GeminiProvider chat", () => {
     }
   });
 
+  it("echoes a thinking model's thoughtSignature back unchanged on the next turn", async () => {
+    // Caught against the real API (gemini-3.6-flash): a functionCall part
+    // can carry a sibling `thoughtSignature` field. Resending the call
+    // without it is rejected outright — "Function call is missing a
+    // thought_signature". There is no field for this on the
+    // vendor-agnostic ToolCall type, so GeminiProvider smuggles it inside
+    // the synthetic id it already assigns (Gemini gives no id of its own)
+    // and must round-trip it exactly, untouched, on the next request.
+    const fixture = await startGeminiHttpFixture([
+      jsonResponse({
+        candidates: [
+          {
+            content: {
+              role: "model",
+              parts: [
+                {
+                  functionCall: { name: "add", args: { a: 1, b: 2 } },
+                  thoughtSignature: "sig-abc123",
+                },
+              ],
+            },
+          },
+        ],
+      }),
+      jsonResponse(textCandidate("ok")),
+    ]);
+    try {
+      const provider = new GeminiProvider({
+        apiKey: "ai-test",
+        model: "gemini-3.6-flash",
+        baseUrl: fixture.url,
+      });
+      const first = await provider.chat({
+        messages: [{ role: "user", content: "add" }],
+      });
+      const call = first.toolCalls?.[0];
+      if (call === undefined) {
+        throw new Error("Expected a tool call in the first response.");
+      }
+
+      await provider.chat({
+        messages: [
+          { role: "user", content: "add" },
+          {
+            role: "assistant",
+            content: "",
+            toolCalls: [call],
+          },
+          { role: "tool", callId: call.id, content: "3" },
+        ],
+      });
+
+      const secondRequest = fixture.requests[1]?.body as {
+        contents: readonly { role: string; parts: readonly unknown[] }[];
+      };
+      const assistantTurn = secondRequest.contents[1];
+      expect(assistantTurn?.parts).toEqual([
+        {
+          functionCall: { name: "add", args: { a: 1, b: 2 } },
+          thoughtSignature: "sig-abc123",
+        },
+      ]);
+    } finally {
+      await fixture.close();
+    }
+  });
+
   it("keeps functionResponse parts in call order, correlated by name not id", async () => {
     const fixture = await startGeminiHttpFixture([
       jsonResponse(textCandidate("ok")),

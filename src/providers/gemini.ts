@@ -50,6 +50,14 @@ interface GeminiResponsePart {
     readonly name: string;
     readonly args?: Readonly<Record<string, unknown>>;
   };
+  // A "thinking" model (e.g. gemini-3.6-flash) attaches an opaque
+  // thoughtSignature next to a functionCall part; the API rejects the
+  // next turn's functionCall if it isn't echoed back unchanged. There is
+  // no field for this on the vendor-agnostic ToolCall type, so it rides
+  // along inside the synthetic id we already generate (Gemini gives tool
+  // calls no id of its own) instead of leaking a Gemini-only concept
+  // into core types.
+  readonly thoughtSignature?: string;
 }
 
 interface GeminiGenerateContentResponse {
@@ -76,6 +84,23 @@ function toGeminiTools(tools: readonly ToolSchema[]): GeminiTool[] {
       })),
     },
   ];
+}
+
+const THOUGHT_SIGNATURE_SEPARATOR = ":";
+
+function toolCallId(
+  counter: number,
+  thoughtSignature: string | undefined,
+): string {
+  const base = `call-${counter}`;
+  return thoughtSignature === undefined
+    ? base
+    : `${base}${THOUGHT_SIGNATURE_SEPARATOR}${thoughtSignature}`;
+}
+
+function extractThoughtSignature(id: string): string | undefined {
+  const index = id.indexOf(THOUGHT_SIGNATURE_SEPARATOR);
+  return index === -1 ? undefined : id.slice(index + 1);
 }
 
 function toolNameFor(
@@ -122,8 +147,10 @@ function toGeminiRequestBody(request: LlmRequest): Record<string, unknown> {
         }
         if (message.toolCalls !== undefined) {
           for (const call of message.toolCalls) {
+            const thoughtSignature = extractThoughtSignature(call.id);
             parts.push({
               functionCall: { name: call.name, args: call.arguments },
+              ...(thoughtSignature === undefined ? {} : { thoughtSignature }),
             });
           }
         }
@@ -163,7 +190,7 @@ function fromGeminiParts(parts: readonly GeminiResponsePart[]): LlmResponse {
     if (part.functionCall !== undefined) {
       counter += 1;
       toolCalls.push({
-        id: `call-${counter}`,
+        id: toolCallId(counter, part.thoughtSignature),
         name: part.functionCall.name,
         arguments: part.functionCall.args ?? {},
       });
@@ -359,7 +386,7 @@ export class GeminiProvider implements LlmProvider {
         if (part.functionCall !== undefined) {
           counter += 1;
           toolCalls.push({
-            id: `call-${counter}`,
+            id: toolCallId(counter, part.thoughtSignature),
             name: part.functionCall.name,
             arguments: part.functionCall.args ?? {},
           });
