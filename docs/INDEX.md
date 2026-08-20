@@ -23,3 +23,4 @@ Do not read the whole `docs/` tree.
 | [architecture/15-sandbox-local.md](architecture/15-sandbox-local.md) | How do I give a model a scoped filesystem and shell? Is it actually sandboxed? |
 | [architecture/16-sandbox-remote.md](architecture/16-sandbox-remote.md) | How do I run the sandbox against a remote service or an MCP exec server instead of the local filesystem? |
 | [architecture/17-token-streaming.md](architecture/17-token-streaming.md) | How do I stream a response? What happens to tool calls when streaming is on? |
+| [architecture/18-hosted-provider.md](architecture/18-hosted-provider.md) | How do I use a real OpenAI-shaped model? What happens on a flaky request or a rate limit? |

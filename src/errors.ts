@@ -11,3 +11,5 @@ export class MaxRoundsExceededError extends Error {}
 export class NoActiveRunError extends Error {}
 
 export class UnknownApprovalRequestError extends Error {}
+
+export class HostedProviderError extends Error {}
