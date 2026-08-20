@@ -76,7 +76,7 @@ nothing under `src/modules/mcp/` changes beyond `execute` accepting a
 `ToolContext`. `exec` forwards `SandboxExecOptions.signal` as
 `context.signal`, so aborting an in-flight `exec` call now cancels the
 underlying MCP tool call the same way it cancels `LocalDirRunner`'s
-child process — see `docs/architecture/07-mcp.md` for how each
+child process — see `docs/worklog/07-mcp.md` for how each
 transport implements that.
 
 - `exec`: the remote tool's text content must be a JSON string shaped

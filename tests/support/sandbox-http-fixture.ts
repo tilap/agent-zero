@@ -41,7 +41,7 @@ function readBody(req: IncomingMessage): Promise<string> {
 }
 
 // Test fixture: a tiny in-process HTTP server speaking the minimal
-// contract RemoteSandboxRunner (docs/architecture/16-sandbox-remote.md)
+// contract RemoteSandboxRunner (docs/worklog/16-sandbox-remote.md)
 // implements — this repo's own shape, not a real vendor's API.
 export async function startSandboxHttpFixture(
   options: SandboxHttpFixtureOptions = {},
