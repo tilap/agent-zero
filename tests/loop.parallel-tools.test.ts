@@ -3,7 +3,10 @@ import type { Hooks } from "../src/hooks.js";
 import { AgentLoop } from "../src/loop.js";
 import { ScriptedProvider } from "../src/providers/scripted.js";
 import type { Event } from "../src/types.js";
-import { ConcurrencyProbeToolset } from "./support/concurrency-probe.js";
+import {
+  ConcurrencyProbeToolset,
+  DelayedToolset,
+} from "./support/concurrency-probe.js";
 import { RecordingToolset } from "./support/recording-toolset.js";
 
 async function collect(events: AsyncGenerator<Event, void, void>) {
@@ -79,19 +82,16 @@ describe("AgentLoop parallel tool dispatch", () => {
   });
 
   it("appends batch results in call order even when they settle out of order", async () => {
-    const toolset = new ConcurrencyProbeToolset(2, "reverse-order");
+    const toolset = new DelayedToolset(new Map([["1", 20]]));
     const provider = new ScriptedProvider([
       batchTurn(["1", "2"]),
       { text: "done" },
     ]);
     const loop = new AgentLoop({ provider, toolsets: [toolset] });
     await collect(loop.run({ userMessage: "go" }));
-    expect(toolset.events.map((event) => event.callId)).toEqual([
-      "1",
-      "2",
-      "2",
-      "1",
-    ]);
+    expect(
+      toolset.events.map((event) => `${event.callId}:${event.phase}`),
+    ).toEqual(["1:start", "2:start", "2:end", "1:end"]);
     const secondRequest = provider.requests[1];
     const toolMessages = secondRequest?.messages.filter(
       (message) => message.role === "tool",

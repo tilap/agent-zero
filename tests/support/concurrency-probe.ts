@@ -20,18 +20,12 @@ export class ConcurrencyProbeToolset extends BaseToolset {
   maxInFlight = 0;
 
   private readonly releaseAt: number;
-  private readonly releaseOrder: "call-order" | "reverse-order";
   private inFlight = 0;
-  private readonly waiting: Array<{ callId: string; resolve: () => void }> =
-    [];
+  private readonly waiting: Array<() => void> = [];
 
-  constructor(
-    releaseAt: number,
-    releaseOrder: "call-order" | "reverse-order" = "call-order",
-  ) {
+  constructor(releaseAt: number) {
     super();
     this.releaseAt = releaseAt;
-    this.releaseOrder = releaseOrder;
   }
 
   async listTools(): Promise<readonly ToolSchema[]> {
@@ -50,19 +44,51 @@ export class ConcurrencyProbeToolset extends BaseToolset {
     this.maxInFlight = Math.max(this.maxInFlight, this.inFlight);
 
     await new Promise<void>((resolve) => {
-      this.waiting.push({ callId: call.id, resolve });
+      this.waiting.push(resolve);
       if (this.waiting.length >= this.releaseAt) {
-        const ordered =
-          this.releaseOrder === "call-order"
-            ? this.waiting
-            : [...this.waiting].reverse();
-        for (const entry of ordered) {
-          entry.resolve();
+        for (const release of this.waiting) {
+          release();
         }
       }
     });
 
     this.inFlight -= 1;
+    this.events.push({ callId: call.id, phase: "end" });
+    return { callId: call.id, content: `done:${call.id}` };
+  }
+}
+
+/**
+ * A toolset where each call resolves after its own configured delay
+ * (default 0ms). Useful to make calls settle in a chosen order that is
+ * independent of dispatch order or microtask interleaving, unlike
+ * `ConcurrencyProbeToolset`.
+ */
+export class DelayedToolset extends BaseToolset {
+  readonly events: ProbeEvent[] = [];
+  private readonly delaysMs: ReadonlyMap<string, number>;
+
+  constructor(delaysMs: ReadonlyMap<string, number>) {
+    super();
+    this.delaysMs = delaysMs;
+  }
+
+  async listTools(): Promise<readonly ToolSchema[]> {
+    return [
+      {
+        name: "wait",
+        description: "Resolves after a configured per-call delay.",
+        parameters: { type: "object", properties: {} },
+      },
+    ];
+  }
+
+  async execute(call: ToolCall): Promise<ToolResult> {
+    this.events.push({ callId: call.id, phase: "start" });
+    const delayMs = this.delaysMs.get(call.id) ?? 0;
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
     this.events.push({ callId: call.id, phase: "end" });
     return { callId: call.id, content: `done:${call.id}` };
   }
