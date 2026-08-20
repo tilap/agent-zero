@@ -29,6 +29,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   mirroring `WorkspaceOptions`) and rejects any path that would escape
   it. Not a security boundary around `exec` itself — see
   `docs/architecture/15-sandbox-local.md`.
+- `RemoteSandboxRunner` and `McpSandboxRunner`: two more
+  `SandboxRunner` implementations behind the same protocol —
+  `RemoteSandboxRunner` over a small HTTP contract this repo defines
+  itself, `McpSandboxRunner` adapting an already-connected
+  `McpToolset` (any transport). `SandboxToolset` needed no change to
+  support either.
 - `SkillRegistry`, `SkillToolset`, and `parseSkill`: discover `SKILL.md`
   files, expose their catalog to a model, and load a skill's body or
   resource files on demand. Callers pass `registry.prelude()` as the

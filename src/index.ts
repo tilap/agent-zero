@@ -49,12 +49,17 @@ export {
 } from "./modules/mcp/index.js";
 export type {
   LocalDirRunnerOptions,
+  McpSandboxRunnerOptions,
+  McpSandboxRunnerToolNames,
+  RemoteSandboxRunnerOptions,
   SandboxExecOptions,
   SandboxExecResult,
   SandboxRunner,
 } from "./modules/sandbox/index.js";
 export {
   LocalDirRunner,
+  McpSandboxRunner,
+  RemoteSandboxRunner,
   SandboxExecError,
   SandboxIoError,
   SandboxNotReadyError,
