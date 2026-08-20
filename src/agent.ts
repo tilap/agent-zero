@@ -2,7 +2,7 @@ import type { ContextCompactor } from "./context.js";
 import { MaxRoundsExceededError } from "./errors.js";
 import type { Hooks } from "./hooks.js";
 import type { RunRequest } from "./loop.js";
-import type { LlmProvider } from "./provider.js";
+import type { GenerationParams, LlmProvider } from "./provider.js";
 import { Runner } from "./runner.js";
 import type { WorkspaceOptions } from "./runner.js";
 import type { BaseToolset } from "./toolset.js";
@@ -16,6 +16,7 @@ export interface AgentOptions {
   readonly workspace?: WorkspaceOptions;
   readonly hooks?: Hooks;
   readonly contextCompactor?: ContextCompactor;
+  readonly generationParams?: GenerationParams;
 }
 
 export type StopReason = "final_text" | "max_rounds" | "cancelled" | "error";
@@ -78,6 +79,9 @@ export class Agent {
       ...(options.contextCompactor === undefined
         ? {}
         : { contextCompactor: options.contextCompactor }),
+      ...(options.generationParams === undefined
+        ? {}
+        : { generationParams: options.generationParams }),
     });
   }
 

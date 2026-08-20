@@ -52,6 +52,21 @@ describe("AgentLoop", () => {
     ]);
   });
 
+  it("forwards RunRequest.generationParams into every llmRequest", async () => {
+    const provider = new ScriptedProvider([{ text: "hello" }]);
+    const loop = new AgentLoop({ provider });
+    const generationParams = { temperature: 0.2, maxTokens: 64 };
+    await collect(loop.run({ userMessage: "hi", generationParams }));
+    expect(provider.requests[0]?.generationParams).toEqual(generationParams);
+  });
+
+  it("omits generationParams from llmRequest when not given", async () => {
+    const provider = new ScriptedProvider([{ text: "hello" }]);
+    const loop = new AgentLoop({ provider });
+    await collect(loop.run({ userMessage: "hi" }));
+    expect(provider.requests[0]?.generationParams).toBeUndefined();
+  });
+
   it("rejects stream before calling a provider without chatStream", async () => {
     // ScriptedProvider implements chatStream (Phase 17) — a provider that
     // does not is the one that still needs to reject stream: true.

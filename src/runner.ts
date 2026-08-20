@@ -11,7 +11,7 @@ import { NoActiveRunError, UnknownApprovalRequestError } from "./errors.js";
 import type { Hooks } from "./hooks.js";
 import { AgentLoop } from "./loop.js";
 import type { RunRequest } from "./loop.js";
-import type { LlmProvider } from "./provider.js";
+import type { GenerationParams, LlmProvider } from "./provider.js";
 import type { SteeringSource } from "./steering.js";
 import type { BaseToolset } from "./toolset.js";
 import type { Event, ToolCall } from "./types.js";
@@ -89,6 +89,7 @@ export interface RunnerOptions {
   readonly hooks?: Hooks;
   readonly contextCompactor?: ContextCompactor;
   readonly approvalPolicy?: ApprovalPolicy;
+  readonly generationParams?: GenerationParams;
 }
 
 export interface RunnerRunOptions {
@@ -110,6 +111,7 @@ export class Runner {
   private readonly provider: LlmProvider;
   private readonly toolsets: readonly BaseToolset[];
   private readonly defaultMaxRounds: number | undefined;
+  private readonly defaultGenerationParams: GenerationParams | undefined;
   private readonly workspaceOptions: WorkspaceOptions | undefined;
   private readonly hooks: Hooks | undefined;
   private readonly contextCompactor: ContextCompactor | undefined;
@@ -121,6 +123,7 @@ export class Runner {
     this.provider = options.provider;
     this.toolsets = options.toolsets ?? [];
     this.defaultMaxRounds = options.maxRounds;
+    this.defaultGenerationParams = options.generationParams;
     this.workspaceOptions = options.workspace;
     this.hooks = options.hooks;
     this.contextCompactor = options.contextCompactor;
@@ -168,10 +171,16 @@ export class Runner {
       steering: steeringQueue,
       approval: approvalRegistry,
     });
-    const fullRequest: RunRequest =
-      request.maxRounds !== undefined || this.defaultMaxRounds === undefined
-        ? request
-        : { ...request, maxRounds: this.defaultMaxRounds };
+    const fullRequest: RunRequest = {
+      ...request,
+      ...(request.maxRounds === undefined && this.defaultMaxRounds !== undefined
+        ? { maxRounds: this.defaultMaxRounds }
+        : {}),
+      ...(request.generationParams === undefined &&
+      this.defaultGenerationParams !== undefined
+        ? { generationParams: this.defaultGenerationParams }
+        : {}),
+    };
 
     try {
       yield* loop.run(fullRequest, {

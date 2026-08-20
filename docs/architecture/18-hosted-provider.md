@@ -73,6 +73,9 @@ different auth header).
   from `content` already, same as every other provider.
 - `LlmRequest.tools` → `{ type: "function", function: { name, description, parameters } }`
   per `ToolSchema`; omitted entirely when `tools` is `undefined`.
+- `LlmRequest.generationParams` → `temperature`/`max_tokens`/`top_p` on
+  the body, each omitted individually when its field is `undefined` —
+  not an all-or-nothing bag.
 
 ### Response mapping
 
@@ -134,8 +137,6 @@ accumulated text plus the finalized, JSON-parsed tool calls.
 - No exponential backoff / jitter beyond honouring `Retry-After` when
   the server sends one.
 - No retry once an SSE stream has started emitting content.
-- No sampling parameters (`temperature`, `max_tokens`, …) — `LlmRequest`
-  doesn't carry them.
 - No API-key/env-var convention — `apiKey` is a required constructor
   option, sourcing it is the caller's job.
 - No change to `Loop`/`Agent`/`Runner`/`provider.ts`.

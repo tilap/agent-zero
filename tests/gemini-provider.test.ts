@@ -281,6 +281,51 @@ describe("GeminiProvider chat", () => {
     }
   });
 
+  it("maps request.generationParams into generationConfig", async () => {
+    const fixture = await startGeminiHttpFixture([
+      jsonResponse(textCandidate("ok")),
+    ]);
+    try {
+      const provider = new GeminiProvider({
+        apiKey: "ai-test",
+        model: "gemini-2.5-flash",
+        baseUrl: fixture.url,
+      });
+      await provider.chat({
+        messages: [{ role: "user", content: "hi" }],
+        generationParams: { temperature: 0.2, maxTokens: 64, topP: 0.9 },
+      });
+      const body = fixture.requests[0]?.body as {
+        generationConfig?: unknown;
+      };
+      expect(body.generationConfig).toEqual({
+        temperature: 0.2,
+        maxOutputTokens: 64,
+        topP: 0.9,
+      });
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("omits generationConfig from the body entirely when absent", async () => {
+    const fixture = await startGeminiHttpFixture([
+      jsonResponse(textCandidate("ok")),
+    ]);
+    try {
+      const provider = new GeminiProvider({
+        apiKey: "ai-test",
+        model: "gemini-2.5-flash",
+        baseUrl: fixture.url,
+      });
+      await provider.chat({ messages: [{ role: "user", content: "hi" }] });
+      const body = fixture.requests[0]?.body as Record<string, unknown>;
+      expect("generationConfig" in body).toBe(false);
+    } finally {
+      await fixture.close();
+    }
+  });
+
   it("throws immediately on a non-retryable status", async () => {
     const fixture = await startGeminiHttpFixture([
       jsonResponse({ error: { message: "invalid api key" } }, 400),

@@ -77,6 +77,7 @@ export {
   SkillToolset,
 } from "./modules/skill/index.js";
 export type {
+  GenerationParams,
   LlmDelta,
   LlmProvider,
   LlmRequest,

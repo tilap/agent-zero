@@ -1,9 +1,16 @@
 import type { ToolSchema } from "./toolset.js";
 import type { Message, ToolCall } from "./types.js";
 
+export interface GenerationParams {
+  readonly temperature?: number;
+  readonly maxTokens?: number;
+  readonly topP?: number;
+}
+
 export interface LlmRequest {
   readonly messages: readonly Message[];
   readonly tools?: readonly ToolSchema[];
+  readonly generationParams?: GenerationParams;
 }
 
 export interface LlmResponse {

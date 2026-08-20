@@ -23,6 +23,7 @@ export interface AgentOptions {
   readonly systemPrompt?: string;
   readonly maxRounds?: number;
   readonly workspace?: WorkspaceOptions;
+  readonly generationParams?: GenerationParams; // default for every run; a RunRequest can override it
 }
 
 export type StopReason = "final_text" | "max_rounds" | "cancelled" | "error";

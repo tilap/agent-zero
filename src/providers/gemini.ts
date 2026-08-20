@@ -170,12 +170,24 @@ function toGeminiRequestBody(request: LlmRequest): Record<string, unknown> {
   }
   flushToolGroup();
 
+  const params = request.generationParams;
+  const generationConfig = {
+    ...(params?.temperature === undefined
+      ? {}
+      : { temperature: params.temperature }),
+    ...(params?.maxTokens === undefined
+      ? {}
+      : { maxOutputTokens: params.maxTokens }),
+    ...(params?.topP === undefined ? {} : { topP: params.topP }),
+  };
+
   return {
     ...(systemInstruction === undefined ? {} : { systemInstruction }),
     contents,
     ...(request.tools === undefined
       ? {}
       : { tools: toGeminiTools(request.tools) }),
+    ...(Object.keys(generationConfig).length === 0 ? {} : { generationConfig }),
   };
 }
 

@@ -23,6 +23,7 @@ export interface RunnerOptions {
   readonly workspace?: WorkspaceOptions;
   readonly hooks?: Hooks;
   readonly contextCompactor?: ContextCompactor;
+  readonly generationParams?: GenerationParams;
 }
 
 export interface RunnerRunOptions {
@@ -49,9 +50,10 @@ export class Runner {
 - A caller constructing `Runner` directly gets exactly what `Agent`
   gets internally: per-run workspace lifecycle (ephemeral by default,
   created and removed around the run; kept if an explicit path is
-  given), `maxRounds` as a default only applied when a `RunRequest`
-  does not set its own, and `hooks`/`contextCompactor` forwarded
-  straight into the `AgentLoop` it builds per call.
+  given), `maxRounds`/`generationParams` each applied as a default only
+  when the matching `RunRequest` field is not set, and
+  `hooks`/`contextCompactor` forwarded straight into the `AgentLoop`
+  it builds per call.
 - `Runner.run` takes a `RunRequest` directly — no bare-string
   shorthand, and no `systemPrompt` default. `Agent` is still the only
   place that shorthand and default live (Phase 5); `Runner` is the

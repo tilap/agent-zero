@@ -240,12 +240,20 @@ export class OpenAiProvider implements LlmProvider {
     request: LlmRequest,
     extra?: Readonly<Record<string, unknown>>,
   ): Record<string, unknown> {
+    const params = request.generationParams;
     return {
       model: this.model,
       messages: toOpenAiMessages(request.messages, this.model),
       ...(request.tools === undefined
         ? {}
         : { tools: toOpenAiTools(request.tools) }),
+      ...(params?.temperature === undefined
+        ? {}
+        : { temperature: params.temperature }),
+      ...(params?.maxTokens === undefined
+        ? {}
+        : { max_tokens: params.maxTokens }),
+      ...(params?.topP === undefined ? {} : { top_p: params.topP }),
       ...extra,
     };
   }
