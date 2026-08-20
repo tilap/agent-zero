@@ -7,3 +7,5 @@ export class UnsupportedOptionError extends Error {}
 export class DuplicateToolNameError extends Error {}
 
 export class MaxRoundsExceededError extends Error {}
+
+export class NoActiveRunError extends Error {}

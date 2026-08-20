@@ -9,6 +9,7 @@ export {
   DuplicateToolNameError,
   InvalidTranscriptError,
   MaxRoundsExceededError,
+  NoActiveRunError,
   ScriptExhaustedError,
   UnsupportedOptionError,
 } from "./errors.js";
@@ -51,6 +52,7 @@ export {
 export type { LlmProvider, LlmRequest, LlmResponse } from "./provider.js";
 export type { ScriptedTurn } from "./providers/scripted.js";
 export { ScriptedProvider } from "./providers/scripted.js";
+export type { SteeringSource } from "./steering.js";
 export type { ToolContext, ToolSchema } from "./toolset.js";
 export { BaseToolset, ToolsetRouter } from "./toolset.js";
 export type { Event, Message, ToolCall, ToolResult } from "./types.js";

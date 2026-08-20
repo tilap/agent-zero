@@ -2,15 +2,31 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ContextCompactor } from "./context.js";
+import { NoActiveRunError } from "./errors.js";
 import type { Hooks } from "./hooks.js";
 import { AgentLoop } from "./loop.js";
 import type { RunRequest } from "./loop.js";
 import type { LlmProvider } from "./provider.js";
+import type { SteeringSource } from "./steering.js";
 import type { BaseToolset } from "./toolset.js";
 import type { Event } from "./types.js";
 
 export interface WorkspaceOptions {
   readonly path?: string;
+}
+
+class SteeringQueue implements SteeringSource {
+  private pending: string[] = [];
+
+  enqueue(text: string): void {
+    this.pending.push(text);
+  }
+
+  drain(): readonly string[] {
+    const drained = this.pending;
+    this.pending = [];
+    return drained;
+  }
 }
 
 export interface RunnerOptions {
@@ -44,6 +60,7 @@ export class Runner {
   private readonly workspaceOptions: WorkspaceOptions | undefined;
   private readonly hooks: Hooks | undefined;
   private readonly contextCompactor: ContextCompactor | undefined;
+  private steeringQueue: SteeringQueue | undefined;
 
   constructor(options: RunnerOptions) {
     this.provider = options.provider;
@@ -54,11 +71,20 @@ export class Runner {
     this.contextCompactor = options.contextCompactor;
   }
 
+  sendSteering(text: string): void {
+    if (this.steeringQueue === undefined) {
+      throw new NoActiveRunError("Cannot send steering: no run is active.");
+    }
+    this.steeringQueue.enqueue(text);
+  }
+
   async *run(
     request: RunRequest,
     options?: RunnerRunOptions,
   ): AsyncGenerator<Event, void, void> {
     const workspace = await prepareWorkspace(this.workspaceOptions);
+    const steeringQueue = new SteeringQueue();
+    this.steeringQueue = steeringQueue;
     const loop = new AgentLoop({
       provider: this.provider,
       toolsets: this.toolsets,
@@ -66,6 +92,7 @@ export class Runner {
       ...(this.contextCompactor === undefined
         ? {}
         : { contextCompactor: this.contextCompactor }),
+      steering: steeringQueue,
     });
     const fullRequest: RunRequest =
       request.maxRounds !== undefined || this.defaultMaxRounds === undefined
@@ -78,6 +105,7 @@ export class Runner {
         workspace: workspace.path,
       });
     } finally {
+      this.steeringQueue = undefined;
       if (workspace.ephemeral) {
         await rm(workspace.path, { recursive: true, force: true });
       }

@@ -3,6 +3,7 @@ import { clipToolResult } from "./context.js";
 import { MaxRoundsExceededError, UnsupportedOptionError } from "./errors.js";
 import type { Hooks } from "./hooks.js";
 import type { LlmProvider, LlmRequest, LlmResponse } from "./provider.js";
+import type { SteeringSource } from "./steering.js";
 import type { BaseToolset, ToolContext } from "./toolset.js";
 import { ToolsetRouter } from "./toolset.js";
 import type { Event, Message, ToolCall, ToolResult } from "./types.js";
@@ -49,18 +50,21 @@ export class AgentLoop {
   private readonly router: ToolsetRouter;
   private readonly hooks: Hooks | undefined;
   private readonly contextCompactor: ContextCompactor | undefined;
+  private readonly steering: SteeringSource | undefined;
 
   constructor(options: {
     readonly provider: LlmProvider;
     readonly toolsets?: readonly BaseToolset[];
     readonly hooks?: Hooks;
     readonly contextCompactor?: ContextCompactor;
+    readonly steering?: SteeringSource;
   }) {
     this.provider = options.provider;
     this.toolsets = options.toolsets ?? [];
     this.router = new ToolsetRouter(this.toolsets);
     this.hooks = options.hooks;
     this.contextCompactor = options.contextCompactor;
+    this.steering = options.steering;
   }
 
   async *run(
@@ -101,6 +105,13 @@ export class AgentLoop {
             after: compacted.length,
           };
           messages = [...compacted];
+        }
+      }
+
+      if (this.steering !== undefined) {
+        for (const text of this.steering.drain()) {
+          messages.push({ role: "user", content: text });
+          yield { type: "steering_injected", text };
         }
       }
 
