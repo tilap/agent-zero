@@ -70,8 +70,11 @@ removes — the same ephemeral-vs-explicit shape `Agent`'s own
 `WorkspaceOptions` already has (Phase 5), reimplemented here rather
 than imported: this module cannot depend on core internals, and no
 existing module shares helpers with another one this way either.
-Every other method throws `SandboxNotReadyError` before `setup()` has
-run.
+`exec`/`read`/`write` throw `SandboxNotReadyError` before `setup()`
+has run; `aclose()` alone tolerates being called without a prior
+`setup()` (a no-op), so a caller's `try { setup(); ... } finally {
+aclose(); }` cannot itself throw a second, confusing error when
+`setup()` is what actually failed.
 
 **Path containment.** `read`, `write`, and `exec`'s `cwd` all resolve
 against the root and reject — `SandboxPathEscapeError`, before any
