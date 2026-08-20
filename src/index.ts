@@ -82,6 +82,8 @@ export type {
   LlmRequest,
   LlmResponse,
 } from "./provider.js";
+export type { GeminiProviderOptions } from "./providers/gemini.js";
+export { GeminiProvider } from "./providers/gemini.js";
 export type { OpenAiProviderOptions } from "./providers/openai.js";
 export { OpenAiProvider } from "./providers/openai.js";
 export type { ScriptedTurn } from "./providers/scripted.js";
