@@ -38,7 +38,6 @@ describe("samples/skills", () => {
     });
 
     const loadResult = toolResultFor(events, "2");
-    expect(loadResult?.content).toContain("summarize");
-    expect(loadResult?.content.length).toBeGreaterThan(0);
+    expect(loadResult?.content).toContain("three sentences");
   });
 });
