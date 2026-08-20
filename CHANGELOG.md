@@ -48,6 +48,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `429`/`5xx` and connection failures/timeout, a fixed delay between
   attempts, no retry once a streamed response has started emitting
   content.
+- `GeminiProvider`: a second `LlmProvider`, over Google's Generative
+  Language API — a genuinely different wire shape from OpenAI (system
+  prompt as a top-level field, no `tool` role, tool calls with no id
+  correlated by name and position instead, no stream terminator).
+  Same retry/timeout policy and `HostedProviderError` as
+  `OpenAiProvider`, no shared code between the two.
 - `SkillRegistry`, `SkillToolset`, and `parseSkill`: discover `SKILL.md`
   files, expose their catalog to a model, and load a skill's body or
   resource files on demand. Callers pass `registry.prelude()` as the
