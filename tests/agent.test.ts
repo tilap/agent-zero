@@ -78,9 +78,9 @@ describe("Agent", () => {
     expect(result.error).toBeInstanceOf(MaxRoundsExceededError);
   });
 
-  it("does not export Runner from the public entry point", async () => {
+  it("exports Runner from the public entry point alongside Agent", async () => {
     const entryPoint: Record<string, unknown> = await import("../src/index.js");
-    expect("Runner" in entryPoint).toBe(false);
+    expect("Runner" in entryPoint).toBe(true);
     expect(entryPoint.Agent).toBeDefined();
   });
 });
