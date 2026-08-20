@@ -40,7 +40,9 @@ describe("Runner", () => {
   });
 
   it("drives a run to final_text when constructed directly", async () => {
-    const runner = new Runner({ provider: new ScriptedProvider([{ text: "hi" }]) });
+    const runner = new Runner({
+      provider: new ScriptedProvider([{ text: "hi" }]),
+    });
     const events = await collect(runner.run({ userMessage: "hi" }));
     expect(events.at(-1)).toEqual({ type: "final_text", text: "hi" });
   });
