@@ -25,7 +25,7 @@ export interface McpToolResult {
 
 export interface McpSession {
   listTools(): Promise<readonly McpToolDescriptor[]>;
-  callTool(name: string, args: Readonly<Record<string, unknown>>): Promise<McpToolResult>;
+  callTool(name: string, args: Readonly<Record<string, unknown>>, signal?: AbortSignal): Promise<McpToolResult>;
   close(): Promise<void>;
 }
 
@@ -41,7 +41,7 @@ export class McpToolset extends BaseToolset {
   constructor(session: McpSession, options: { readonly name: string; readonly only?: readonly string[] });
   static connectStdio(options: StdioMcpServerOptions): Promise<McpToolset>;
   listTools(): Promise<readonly ToolSchema[]>;
-  execute(call: ToolCall): Promise<ToolResult>;
+  execute(call: ToolCall, context?: ToolContext): Promise<ToolResult>;
   close(): Promise<void>;
 }
 
@@ -62,13 +62,24 @@ export class McpProtocolError extends Error {}
   `only` when set (matched against the session's own, unprefixed name),
   then renames every survivor `${name}__${toolName}` and maps
   `inputSchema` to `ToolSchema.parameters`.
-- `execute(call)` strips the `${name}__` prefix to recover the remote
-  name and calls `session.callTool(remoteName, call.arguments)`.
-  `content` (one or more `{type:"text", text}` items) is joined with
-  `"\n"`; `isError` passes through unchanged. A throw from the session
-  is not caught here — `ToolsetRouter` already converts a throwing
-  toolset into an `isError` result, so this stays consistent with every
-  other toolset since Phase 3.
+- `execute(call, context)` strips the `${name}__` prefix to recover the
+  remote name and calls
+  `session.callTool(remoteName, call.arguments, context.signal)` —
+  `context` defaults to `{}`, matching `ToolsetRouter`'s own default,
+  so a direct caller may still omit it. `content` (one or more
+  `{type:"text", text}` items) is joined with `"\n"`; `isError` passes
+  through unchanged. A throw from the session is not caught here —
+  `ToolsetRouter` already converts a throwing toolset into an
+  `isError` result, so this stays consistent with every other toolset
+  since Phase 3.
+- Cancellation: `context.signal`, when provided and later aborted
+  while a call is in flight, rejects that one call with
+  `McpConnectionError` — it does not tear down the underlying session,
+  since other calls may still be in flight over the same connection
+  (stdio process, SSE stream). `StdioMcpSession`/`SseMcpSession`
+  resolve/reject requests by id through a shared pending-request table;
+  an abort rejects that id's entry directly. `HttpMcpSession` forwards
+  the signal straight into its `fetch` call.
 - `connectStdio`: substitutes `${VAR}` tokens in `options.env` from
   `process.env` first — a missing variable throws `McpConfigError`
   before anything is spawned (a setup mistake). It then spawns

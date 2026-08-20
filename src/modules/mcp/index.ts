@@ -1,6 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { BaseToolset } from "../../toolset.js";
-import type { ToolSchema } from "../../toolset.js";
+import type { ToolContext, ToolSchema } from "../../toolset.js";
 import type { ToolCall, ToolResult } from "../../types.js";
 import {
   McpConfigError,
@@ -115,6 +115,7 @@ export interface McpSession {
   callTool(
     name: string,
     args: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
   ): Promise<McpToolResult>;
   close(): Promise<void>;
 }
@@ -147,11 +148,18 @@ export class McpToolset extends BaseToolset {
       }));
   }
 
-  async execute(call: ToolCall): Promise<ToolResult> {
+  async execute(
+    call: ToolCall,
+    context: ToolContext = {},
+  ): Promise<ToolResult> {
     const remoteName = call.name.startsWith(this.prefix)
       ? call.name.slice(this.prefix.length)
       : call.name;
-    const result = await this.session.callTool(remoteName, call.arguments);
+    const result = await this.session.callTool(
+      remoteName,
+      call.arguments,
+      context.signal,
+    );
     const content = result.content.map((item) => item.text).join("\n");
     return {
       callId: call.id,
@@ -318,11 +326,13 @@ class StdioMcpSession implements McpSession {
   async callTool(
     name: string,
     args: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
   ): Promise<McpToolResult> {
-    return (await this.request("tools/call", {
-      name,
-      arguments: args,
-    })) as McpToolResult;
+    return (await this.request(
+      "tools/call",
+      { name, arguments: args },
+      signal,
+    )) as McpToolResult;
   }
 
   async close(): Promise<void> {
@@ -333,13 +343,30 @@ class StdioMcpSession implements McpSession {
   private request(
     method: string,
     params: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
   ): Promise<unknown> {
     if (this.pending.isClosed) {
       return Promise.reject(new McpConnectionError("MCP session is closed."));
     }
+    if (signal?.aborted) {
+      return Promise.reject(new McpConnectionError("MCP request aborted."));
+    }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.add(id, { resolve, reject });
+      const onAbort = () => {
+        this.pending.reject(id, new McpConnectionError("MCP request aborted."));
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+      this.pending.add(id, {
+        resolve: (value) => {
+          signal?.removeEventListener("abort", onAbort);
+          resolve(value);
+        },
+        reject: (error) => {
+          signal?.removeEventListener("abort", onAbort);
+          reject(error);
+        },
+      });
       this.send({ jsonrpc: "2.0", id, method, params });
     });
   }
@@ -414,11 +441,13 @@ class SseMcpSession implements McpSession {
   async callTool(
     name: string,
     args: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
   ): Promise<McpToolResult> {
-    return (await this.request("tools/call", {
-      name,
-      arguments: args,
-    })) as McpToolResult;
+    return (await this.request(
+      "tools/call",
+      { name, arguments: args },
+      signal,
+    )) as McpToolResult;
   }
 
   async close(): Promise<void> {
@@ -493,13 +522,30 @@ class SseMcpSession implements McpSession {
   private request(
     method: string,
     params: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
   ): Promise<unknown> {
     if (this.pending.isClosed) {
       return Promise.reject(new McpConnectionError("MCP session is closed."));
     }
+    if (signal?.aborted) {
+      return Promise.reject(new McpConnectionError("MCP request aborted."));
+    }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.add(id, { resolve, reject });
+      const onAbort = () => {
+        this.pending.reject(id, new McpConnectionError("MCP request aborted."));
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+      this.pending.add(id, {
+        resolve: (value) => {
+          signal?.removeEventListener("abort", onAbort);
+          resolve(value);
+        },
+        reject: (error) => {
+          signal?.removeEventListener("abort", onAbort);
+          reject(error);
+        },
+      });
       this.post({ jsonrpc: "2.0", id, method, params }).catch(
         (error: unknown) => {
           this.pending.reject(
@@ -594,11 +640,13 @@ class HttpMcpSession implements McpSession {
   async callTool(
     name: string,
     args: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
   ): Promise<McpToolResult> {
-    return (await this.request("tools/call", {
-      name,
-      arguments: args,
-    })) as McpToolResult;
+    return (await this.request(
+      "tools/call",
+      { name, arguments: args },
+      signal,
+    )) as McpToolResult;
   }
 
   async close(): Promise<void> {
@@ -619,13 +667,23 @@ class HttpMcpSession implements McpSession {
   private async request(
     method: string,
     params: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
   ): Promise<unknown> {
     const id = this.nextId++;
-    const response = await fetch(this.url, {
-      method: "POST",
-      headers: this.buildHeaders(),
-      body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(this.url, {
+        method: "POST",
+        headers: this.buildHeaders(),
+        body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
+        ...(signal === undefined ? {} : { signal }),
+      });
+    } catch (error) {
+      if (signal?.aborted) {
+        throw new McpConnectionError("MCP request aborted.");
+      }
+      throw error;
+    }
     const sessionId = response.headers.get(SESSION_ID_HEADER);
     if (sessionId !== null) {
       this.sessionId = sessionId;
