@@ -2,6 +2,7 @@
   "name": "agent-zero",
   "version": "0.1.0",
   "type": "module",
+  "license": "MIT",
   "author": "Julien La Vinh <jlavinh@gmail.com>",
   "repository": {
     "type": "git",

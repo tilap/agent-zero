@@ -79,6 +79,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A fixed cap (`MAX_TOOL_RESULT_CHARS`) on tool result content, applied
   unconditionally so one oversized tool result cannot blow up the next
   round's request.
+- MIT license (`LICENSE`, `package.json#license`).
 
 ### Changed
 
