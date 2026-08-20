@@ -100,6 +100,26 @@ describe("McpSandboxRunner", () => {
     expect(result.stdout).toBe("ok");
   });
 
+  it("forwards SandboxExecOptions.signal to the underlying MCP call", async () => {
+    const session = new FakeMcpSession(
+      [{ name: "exec", description: "", inputSchema: {} }],
+      {
+        exec: () =>
+          textResult(
+            JSON.stringify({ stdout: "hi\n", stderr: "", exitCode: 0 }),
+          ),
+      },
+    );
+    const toolset = new McpToolset(session, { name: "sbx" });
+    const runner = new McpSandboxRunner({ toolset });
+    await runner.setup();
+    const controller = new AbortController();
+
+    await runner.exec("echo hi", { signal: controller.signal });
+
+    expect(session.calls[0]?.signal).toBe(controller.signal);
+  });
+
   it("aclose() closes the underlying session", async () => {
     const session = new FakeMcpSession([]);
     const toolset = new McpToolset(session, { name: "sbx" });

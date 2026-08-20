@@ -7,6 +7,7 @@ import type {
 export interface FakeCall {
   readonly name: string;
   readonly args: Readonly<Record<string, unknown>>;
+  readonly signal?: AbortSignal;
 }
 
 export class FakeMcpSession implements McpSession {
@@ -27,8 +28,13 @@ export class FakeMcpSession implements McpSession {
   async callTool(
     name: string,
     args: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal,
   ): Promise<McpToolResult> {
-    this.calls.push({ name, args });
+    this.calls.push({
+      name,
+      args,
+      ...(signal === undefined ? {} : { signal }),
+    });
     const configured = this.results[name];
     if (configured === undefined) {
       throw new Error(`FakeMcpSession has no configured result for "${name}".`);

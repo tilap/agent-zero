@@ -95,6 +95,12 @@ export async function startHttpFixture(): Promise<HttpFixtureHandle> {
                 "Report the authorization and session headers this call carried.",
               inputSchema: { type: "object", properties: {} },
             },
+            {
+              name: "hang",
+              description:
+                "Respond only after a long delay — used to test call cancellation.",
+              inputSchema: { type: "object", properties: {} },
+            },
           ],
         },
       });
@@ -111,6 +117,19 @@ export async function startHttpFixture(): Promise<HttpFixtureHandle> {
           id: message.id,
           result: textResult(String(args.text ?? "")),
         });
+        return;
+      }
+      if (name === "hang") {
+        setTimeout(() => {
+          if (res.writableEnded || req.destroyed) {
+            return;
+          }
+          respond({
+            jsonrpc: "2.0",
+            id: message.id,
+            result: textResult("too late"),
+          });
+        }, 2_000);
         return;
       }
       if (name === "show_headers") {
