@@ -47,6 +47,21 @@ export {
   McpProtocolError,
   McpToolset,
 } from "./modules/mcp/index.js";
+export type {
+  LocalDirRunnerOptions,
+  SandboxExecOptions,
+  SandboxExecResult,
+  SandboxRunner,
+} from "./modules/sandbox/index.js";
+export {
+  LocalDirRunner,
+  SandboxExecError,
+  SandboxIoError,
+  SandboxNotReadyError,
+  SandboxPathEscapeError,
+  SandboxTimeoutError,
+  SandboxToolset,
+} from "./modules/sandbox/index.js";
 export type { Skill, SkillMetadata } from "./modules/skill/index.js";
 export {
   DuplicateSkillNameError,

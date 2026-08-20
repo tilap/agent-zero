@@ -22,6 +22,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   running; cancelling the run while a decision is pending ends the run
   in `cancelled`. `UnknownApprovalRequestError` covers deciding an id
   that is not currently pending.
+- `SandboxRunner`, `LocalDirRunner`, `SandboxToolset`: a scoped
+  filesystem and shell (`exec`/`read`/`write`) a caller can add to
+  `toolsets`. `LocalDirRunner` confines paths to a root directory
+  (ephemeral by default, or an explicit path kept after the run,
+  mirroring `WorkspaceOptions`) and rejects any path that would escape
+  it. Not a security boundary around `exec` itself — see
+  `docs/architecture/15-sandbox-local.md`.
 - `SkillRegistry`, `SkillToolset`, and `parseSkill`: discover `SKILL.md`
   files, expose their catalog to a model, and load a skill's body or
   resource files on demand. Callers pass `registry.prelude()` as the
