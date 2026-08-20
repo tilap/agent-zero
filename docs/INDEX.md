@@ -21,3 +21,4 @@ Do not read the whole `docs/` tree.
 | [architecture/13-steering.md](architecture/13-steering.md) | How do I inject a line of text into a run already in progress? |
 | [architecture/14-approval.md](architecture/14-approval.md) | How do I pause a tool call for a human decision? What does a denied call look like to the model? |
 | [architecture/15-sandbox-local.md](architecture/15-sandbox-local.md) | How do I give a model a scoped filesystem and shell? Is it actually sandboxed? |
+| [architecture/16-sandbox-remote.md](architecture/16-sandbox-remote.md) | How do I run the sandbox against a remote service or an MCP exec server instead of the local filesystem? |
