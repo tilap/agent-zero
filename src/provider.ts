@@ -11,6 +11,11 @@ export interface LlmResponse {
   readonly toolCalls?: readonly ToolCall[];
 }
 
+export interface LlmDelta {
+  readonly text: string;
+}
+
 export interface LlmProvider {
   chat(request: LlmRequest): Promise<LlmResponse>;
+  chatStream?(request: LlmRequest): AsyncGenerator<LlmDelta, LlmResponse, void>;
 }

@@ -75,7 +75,12 @@ export {
   SkillRegistry,
   SkillToolset,
 } from "./modules/skill/index.js";
-export type { LlmProvider, LlmRequest, LlmResponse } from "./provider.js";
+export type {
+  LlmDelta,
+  LlmProvider,
+  LlmRequest,
+  LlmResponse,
+} from "./provider.js";
 export type { ScriptedTurn } from "./providers/scripted.js";
 export { ScriptedProvider } from "./providers/scripted.js";
 export type { SteeringSource } from "./steering.js";

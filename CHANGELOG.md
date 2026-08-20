@@ -35,6 +35,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   itself, `McpSandboxRunner` adapting an already-connected
   `McpToolset` (any transport). `SandboxToolset` needed no change to
   support either.
+- `LlmDelta`, `LlmProvider.chatStream` (optional): stream partial text
+  through a new `llm_delta` event while a round is in progress.
+  `ScriptedProvider` implements it. `RunRequest.stream` now only
+  throws `UnsupportedOptionError` when the configured provider does
+  not implement `chatStream`, instead of unconditionally. Tool calls
+  are never streamed — they still arrive whole on the round's final
+  response.
 - `SkillRegistry`, `SkillToolset`, and `parseSkill`: discover `SKILL.md`
   files, expose their catalog to a model, and load a skill's body or
   resource files on demand. Callers pass `registry.prelude()` as the

@@ -17,7 +17,7 @@ export interface RunRequest {
   readonly userMessage: string;
   readonly systemPrompt?: string;
   readonly maxRounds?: number; // accepted, defaulted; enforcement is Phase 4
-  readonly stream?: boolean; // rejected until Phase 17
+  readonly stream?: boolean; // rejected unless the provider implements chatStream (Phase 17)
 }
 
 export class AgentLoop {
@@ -35,7 +35,8 @@ export class UnsupportedOptionError extends Error {}
 - One round emits exactly three events in order: `llm_request`,
   `llm_response`, `final_text`.
 - `stream: true` throws `UnsupportedOptionError` before the provider is
-  ever called.
+  ever called, unless the provider implements `chatStream` — see
+  [17-token-streaming.md](17-token-streaming.md).
 
 ## Non-goals
 
