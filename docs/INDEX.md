@@ -22,3 +22,4 @@ Do not read the whole `docs/` tree.
 | [architecture/14-approval.md](architecture/14-approval.md) | How do I pause a tool call for a human decision? What does a denied call look like to the model? |
 | [architecture/15-sandbox-local.md](architecture/15-sandbox-local.md) | How do I give a model a scoped filesystem and shell? Is it actually sandboxed? |
 | [architecture/16-sandbox-remote.md](architecture/16-sandbox-remote.md) | How do I run the sandbox against a remote service or an MCP exec server instead of the local filesystem? |
+| [architecture/17-token-streaming.md](architecture/17-token-streaming.md) | How do I stream a response? What happens to tool calls when streaming is on? |
