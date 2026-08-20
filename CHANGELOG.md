@@ -34,6 +34,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   unconditionally so one oversized tool result cannot blow up the next
   round's request.
 
+### Changed
+
+- Tool calls within one model turn now execute concurrently instead of
+  one at a time. `tool_call` events for a turn are emitted together, in
+  call order, before any `tool_result`; results are appended to the
+  transcript in call order regardless of which call settles first. A
+  throwing `beforeTool`/`afterTool` hook anywhere in the batch reports
+  the earliest-by-call-order rejection and discards every result in
+  that batch. Cancellation is checked once before a batch is dispatched
+  and once after the whole batch settles, rather than between each
+  call.
+
 ## [0.1.0] - 2026-08-18
 
 ### Added
