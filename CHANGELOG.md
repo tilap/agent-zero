@@ -16,6 +16,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   as a `user` message before the run's next round, plus the
   `steering_injected` event and `NoActiveRunError` for calling it
   outside an active run.
+- `RunnerOptions.approvalPolicy`, `Runner.approve`/`Runner.deny`: pause
+  a tool call for an external yes/no decision before it runs. A denied
+  call becomes a model-visible `isError` tool result instead of
+  running; cancelling the run while a decision is pending ends the run
+  in `cancelled`. `UnknownApprovalRequestError` covers deciding an id
+  that is not currently pending.
 - `SkillRegistry`, `SkillToolset`, and `parseSkill`: discover `SKILL.md`
   files, expose their catalog to a model, and load a skill's body or
   resource files on demand. Callers pass `registry.prelude()` as the

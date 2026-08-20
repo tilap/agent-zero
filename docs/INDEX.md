@@ -19,3 +19,4 @@ Do not read the whole `docs/` tree.
 | [architecture/11-parallel-tools.md](architecture/11-parallel-tools.md) | How do several tool calls in one turn run? What happens if one hook throws while others are in flight? |
 | [architecture/12-public-runner.md](architecture/12-public-runner.md) | How is `Runner` different from `Agent`? When would I use it directly? |
 | [architecture/13-steering.md](architecture/13-steering.md) | How do I inject a line of text into a run already in progress? |
+| [architecture/14-approval.md](architecture/14-approval.md) | How do I pause a tool call for a human decision? What does a denied call look like to the model? |

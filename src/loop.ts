@@ -1,3 +1,4 @@
+import type { ApprovalGate } from "./approval.js";
 import type { ContextCompactor } from "./context.js";
 import { clipToolResult } from "./context.js";
 import { MaxRoundsExceededError, UnsupportedOptionError } from "./errors.js";
@@ -51,6 +52,7 @@ export class AgentLoop {
   private readonly hooks: Hooks | undefined;
   private readonly contextCompactor: ContextCompactor | undefined;
   private readonly steering: SteeringSource | undefined;
+  private readonly approval: ApprovalGate | undefined;
 
   constructor(options: {
     readonly provider: LlmProvider;
@@ -58,6 +60,7 @@ export class AgentLoop {
     readonly hooks?: Hooks;
     readonly contextCompactor?: ContextCompactor;
     readonly steering?: SteeringSource;
+    readonly approval?: ApprovalGate;
   }) {
     this.provider = options.provider;
     this.toolsets = options.toolsets ?? [];
@@ -65,6 +68,7 @@ export class AgentLoop {
     this.hooks = options.hooks;
     this.contextCompactor = options.contextCompactor;
     this.steering = options.steering;
+    this.approval = options.approval;
   }
 
   async *run(
@@ -222,6 +226,15 @@ export class AgentLoop {
     let result: ToolResult;
     if (shortCircuit !== undefined) {
       result = shortCircuit;
+    } else if (
+      this.approval?.requiresApproval(call) === true &&
+      (await this.approval.requestApproval(call, context.signal)) === "denied"
+    ) {
+      result = {
+        callId: call.id,
+        content: "Tool call denied by approval.",
+        isError: true,
+      };
     } else {
       result = await this.router.execute(call, context);
       const replaced =
